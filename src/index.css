@@ -1,0 +1,181 @@
+@import "tailwindcss";
+
+@theme {
+  --color-deep-gunmetal: #101214;
+  --color-error: #ffb4ab;
+  --color-on-tertiary-container: #ffdce2;
+  --color-steel-blue: #4a5568;
+  --color-primary-fixed-dim: #cbbeff;
+  --color-on-error: #690005;
+  --color-secondary: #d3fbff;
+  --color-secondary-container: #00eefc;
+  --color-outline-variant: #484456;
+  --color-on-surface: #e2e2e5;
+  --color-secondary-fixed: #7df4ff;
+  --color-primary: #cbbeff;
+  --color-error-container: #93000a;
+  --color-tertiary-container: #c9005f;
+  --color-secondary-fixed-dim: #00dbe9;
+  --color-on-primary-fixed-variant: #4c00d3;
+  --color-primary-container: #6c38ff;
+  --color-inverse-surface: #e2e2e5;
+  --color-on-primary: #340098;
+  --color-surface: #121416;
+  --color-inverse-on-surface: #2f3133;
+  --color-brushed-silver: #e2e8f0;
+  --color-on-background: #e2e2e5;
+  --color-on-error-container: #ffdad6;
+  --color-tertiary-fixed-dim: #ffb1c3;
+  --color-surface-bright: #37393b;
+  --color-outline: #938ea2;
+  --color-surface-container-low: #1a1c1e;
+  --color-on-secondary-fixed: #002022;
+  --color-on-surface-variant: #cac3d9;
+  --color-surface-tint: #cbbeff;
+  --color-background: #121416;
+  --color-surface-container-high: #282a2c;
+  --color-on-tertiary-fixed: #3f0019;
+  --color-inverse-primary: #642cf7;
+  --color-tertiary-fixed: #ffd9e0;
+  --color-on-tertiary: #66002c;
+  --color-tertiary: #ffb1c3;
+  --color-on-secondary-fixed-variant: #004f54;
+  --color-on-primary-container: #e9e0ff;
+  --color-surface-container-lowest: #0c0e10;
+  --color-on-tertiary-fixed-variant: #8f0041;
+  --color-primary-fixed: #e7deff;
+  --color-on-secondary: #00363a;
+  --color-on-primary-fixed: #1e0060;
+  --color-surface-variant: #333537;
+  --color-surface-container: #1e2022;
+  --color-on-secondary-container: #00686f;
+  --color-surface-container-highest: #333537;
+  --color-surface-dim: #121416;
+  --color-gpt: #74aa9c;
+  --color-claude: #d97757;
+  --color-gemini: #4285f4;
+  --color-perplexity: #20808d;
+
+  --font-display: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-sm: 0.125rem;
+  --radius-DEFAULT: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+
+  --spacing-base: 8px;
+  --spacing-gutter: 24px;
+  --spacing-margin-desktop: 40px;
+  --spacing-margin-mobile: 16px;
+  --spacing-container-max: 1440px;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-on-surface font-body antialiased min-h-screen;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
+
+@layer utilities {
+  .halftone-dot {
+    background-image: radial-gradient(rgba(203, 190, 255, 0.1) 1px, transparent 1px);
+    background-size: 8px 8px;
+  }
+
+  .brushed-metal {
+    background: linear-gradient(135deg, #1a1c1e 0%, #121416 50%, #1a1c1e 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .brushed-metal::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 1px,
+      rgba(255, 255, 255, 0.02) 1px,
+      rgba(255, 255, 255, 0.02) 2px
+    );
+    pointer-events: none;
+  }
+
+  .milled-edge {
+    border: 1px solid transparent;
+    border-image-source: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.2),
+      rgba(0, 0, 0, 0.4)
+    );
+    border-image-slice: 1;
+  }
+
+  .hard-shadow {
+    box-shadow: 4px 4px 0 0 #000;
+  }
+
+  .hard-shadow-secondary {
+    box-shadow: 4px 4px 0 0 #00eefc;
+  }
+
+  .hard-shadow-tertiary {
+    box-shadow: 4px 4px 0 0 #ffb1c3;
+  }
+
+  .hard-shadow-primary {
+    box-shadow: 4px 4px 0 0 #6c38ff;
+  }
+
+  .neon-glow-cyan {
+    box-shadow:
+      inset 0 0 10px rgba(0, 238, 252, 0.2),
+      0 0 5px rgba(0, 238, 252, 0.1);
+  }
+
+  .electronic-glow:focus-within,
+  .electronic-glow:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 238, 252, 0.45);
+  }
+
+  .metallic-title {
+    background: linear-gradient(180deg, #ffffff 0%, #e2e8f0 45%, #938ea2 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .fallback-stripe {
+    background: repeating-linear-gradient(
+      45deg,
+      #c9005f,
+      #c9005f 8px,
+      #000 8px,
+      #000 16px
+    );
+  }
+
+  .material-symbols-outlined {
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+    font-family: "Material Symbols Outlined";
+    font-style: normal;
+    font-weight: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-smoothing: antialiased;
+  }
+}

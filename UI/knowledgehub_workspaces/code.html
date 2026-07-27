@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>GOORM | Precision RAG Engine</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=JetBrains+Mono:wght@500&family=Inter:wght@400;600&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@100..900&family=Montserrat:wght@100..900&display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+        }
+        .halftone-dot {
+            background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 0);
+            background-size: 12px 12px;
+        }
+        .milled-edge {
+            border: 1px solid transparent;
+            background-clip: padding-box, border-box;
+            background-origin: padding-box, border-box;
+            background-image: linear-gradient(to bottom, #1e2022, #101214), linear-gradient(to bottom, rgba(255,255,255,0.2), rgba(0,0,0,0.4));
+        }
+        .hard-shadow-primary {
+            box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 1);
+        }
+        .hard-shadow-secondary {
+            box-shadow: 4px 4px 0px 0px #00dbe9;
+        }
+        .electronic-glow:focus-within {
+            box-shadow: 0 0 15px rgba(0, 219, 233, 0.3);
+            border-color: #00dbe9;
+        }
+        .brushed-texture {
+            background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 2px);
+        }
+        @keyframes flow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .animate-flow {
+            background-size: 200% 200%;
+            animation: flow 4s ease infinite;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary-fixed-variant": "#4c00d3",
+                      "secondary-fixed-dim": "#00dbe9",
+                      "on-secondary-fixed-variant": "#004f54",
+                      "primary-container": "#6c38ff",
+                      "surface-tint": "#cbbeff",
+                      "on-surface": "#e2e2e5",
+                      "outline": "#938ea2",
+                      "on-tertiary-fixed": "#3f0019",
+                      "on-secondary-container": "#00686f",
+                      "error": "#ffb4ab",
+                      "secondary-fixed": "#7df4ff",
+                      "inverse-on-surface": "#2f3133",
+                      "on-tertiary-fixed-variant": "#8f0041",
+                      "background": "#121416",
+                      "on-primary-fixed": "#1e0060",
+                      "surface": "#121416",
+                      "surface-variant": "#333537",
+                      "on-tertiary": "#66002c",
+                      "tertiary-fixed": "#ffd9e0",
+                      "on-surface-variant": "#cac3d9",
+                      "secondary-container": "#00eefc",
+                      "primary": "#cbbeff",
+                      "tertiary-container": "#c9005f",
+                      "tertiary": "#ffb1c3",
+                      "on-secondary-fixed": "#002022",
+                      "deep-gunmetal": "#101214",
+                      "on-secondary": "#00363a",
+                      "on-error-container": "#ffdad6",
+                      "surface-dim": "#121416",
+                      "surface-container-highest": "#333537",
+                      "secondary": "#d3fbff",
+                      "halftone-dot": "rgba(255, 255, 255, 0.05)",
+                      "tertiary-fixed-dim": "#ffb1c3",
+                      "inverse-primary": "#642cf7",
+                      "surface-container-low": "#1a1c1e",
+                      "surface-container-lowest": "#0c0e10",
+                      "brushed-silver": "#E2E8F0",
+                      "outline-variant": "#484456",
+                      "surface-container": "#1e2022",
+                      "primary-fixed-dim": "#cbbeff",
+                      "on-background": "#e2e2e5",
+                      "on-primary": "#340098",
+                      "error-container": "#93000a",
+                      "surface-container-high": "#282a2c",
+                      "steel-blue": "#4A5568",
+                      "inverse-surface": "#e2e2e5",
+                      "on-primary-container": "#e9e0ff",
+                      "surface-bright": "#37393b",
+                      "on-tertiary-container": "#ffdce2",
+                      "primary-fixed": "#e7deff",
+                      "on-error": "#690005"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "margin-desktop": "40px",
+                      "container-max": "1440px",
+                      "base": "8px",
+                      "gutter": "24px",
+                      "margin-mobile": "16px"
+              },
+              "fontFamily": {
+                      "display-lg": ["Montserrat"],
+                      "label-mono": ["JetBrains Mono"],
+                      "headline-lg-mobile": ["Montserrat"],
+                      "body-md": ["Inter"],
+                      "headline-lg": ["Montserrat"]
+              },
+              "fontSize": {
+                      "display-lg": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                      "label-mono": ["12px", {"lineHeight": "1.0", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                      "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                      "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "700"}]
+              }
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body-md selection:bg-secondary-fixed-dim selection:text-on-secondary-fixed overflow-hidden">
+<div class="flex h-screen w-full halftone-dot">
+<!-- Sidebar Navigation -->
+<aside class="hidden md:flex flex-col h-full w-64 bg-deep-gunmetal border-r border-outline-variant shadow-[4px_0_0_0_rgba(0,0,0,1)] py-8 px-4 gap-base z-50">
+<div class="flex items-center gap-3 mb-8 px-2">
+<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center hard-shadow-primary">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">cloud</span>
+</div>
+<div>
+<h2 class="font-display-lg text-headline-lg-mobile text-primary-fixed-dim leading-none">GOORM</h2>
+<p class="font-label-mono text-[10px] text-outline uppercase tracking-widest">Precision RAG Engine</p>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-2">
+<a class="flex items-center gap-3 px-4 py-3 text-outline hover:text-brushed-silver hover:bg-surface-container-high transition-all duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="grid_view">grid_view</span>
+<span class="font-label-mono text-label-mono uppercase">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container rounded-lg shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] border-l-4 border-secondary-fixed-dim group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="folder_shared">folder_shared</span>
+<span class="font-label-mono text-label-mono uppercase">Workspaces</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-outline hover:text-brushed-silver hover:bg-surface-container-high transition-all duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="description">description</span>
+<span class="font-label-mono text-label-mono uppercase">Documents</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-outline hover:text-brushed-silver hover:bg-surface-container-high transition-all duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="psychology">psychology</span>
+<span class="font-label-mono text-label-mono uppercase">AI Models</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-outline hover:text-brushed-silver hover:bg-surface-container-high transition-all duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="insights">insights</span>
+<span class="font-label-mono text-label-mono uppercase">Analytics</span>
+</a>
+</nav>
+<div class="mt-auto flex flex-col gap-2 pt-8 border-t border-outline-variant/30">
+<button class="w-full py-4 bg-gradient-to-r from-primary-container to-tertiary-container text-white font-bold rounded-lg hard-shadow-primary active:scale-95 transition-all mb-4 uppercase tracking-tighter">
+                    New Analysis
+                </button>
+<a class="flex items-center gap-3 px-4 py-2 text-outline hover:text-brushed-silver transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="font-label-mono text-label-mono uppercase">Support</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-outline hover:text-brushed-silver transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="person_outline">person_outline</span>
+<span class="font-label-mono text-label-mono uppercase">Account</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col h-full overflow-hidden">
+<!-- Top App Bar -->
+<header class="flex justify-between items-center w-full px-margin-desktop py-4 bg-deep-gunmetal/90 backdrop-blur-xl border-b border-outline-variant shadow-[0_4px_0_0_rgba(0,0,0,1)] z-40">
+<div class="flex items-center gap-base electronic-glow px-4 py-2 bg-surface-container rounded-lg border border-outline-variant w-96">
+<span class="material-symbols-outlined text-outline">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-on-surface font-label-mono text-label-mono w-full" placeholder="Search knowledge base..." type="text"/>
+</div>
+<div class="flex items-center gap-gutter">
+<div class="hidden lg:flex items-center gap-base">
+<span class="font-headline-lg text-headline-lg uppercase tracking-wider text-brushed-silver mr-4">KnowledgeHub AI</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-outline hover:text-secondary-fixed-dim transition-all active:scale-95">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-outline hover:text-secondary-fixed-dim transition-all active:scale-95">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="w-10 h-10 rounded-full border-2 border-secondary-fixed-dim p-0.5 overflow-hidden active:scale-95 transition-transform cursor-pointer">
+<img class="w-full h-full object-cover rounded-full" data-alt="A professional portrait of a tech executive in a dark gunmetal suit, illuminated by a neon cyan rim light against a futuristic industrial background with brushed metal textures and high contrast." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBROoQIC69FANhl7V46Dglibl-Ry4UDDbWT_zWWIqBlZQALrDP5Pz3r8kTE8IsBHUnraIgKBGhJqCeoEicPALinK7ZoVsED8dtWXnU4iA-5vd-2wYJpDICqeGI0rCSKyw9reDkqPtw5R9IBpp8zzKZAIhHz6CK60yf2dZecEgKg5sRbLdhJsuk_9EaAqQFCIbtJUS0VTIEgN2jsYKmUio3wQosW9lFxL3Q8wXeoY807gYfCu1odtHM4Kp1fTu48VoVfjO_FE65ZZKRF"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Dashboard Scrollable Area -->
+<div class="flex-1 overflow-y-auto p-margin-desktop custom-scrollbar relative">
+<!-- Page Title -->
+<div class="mb-10">
+<h1 class="font-display-lg text-display-lg text-primary uppercase mb-2">Workspaces</h1>
+<p class="text-outline font-label-mono uppercase tracking-widest">Global Intelligence Infrastructure</p>
+</div>
+<!-- Dashboard Content (Bento Grid) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
+<!-- HR Workspace -->
+<div class="milled-edge p-6 flex flex-col gap-4 group hover:translate-y-[-4px] transition-all duration-300 relative overflow-hidden">
+<div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-secondary animate-flow"></div>
+<div class="flex justify-between items-start">
+<div class="w-12 h-12 bg-surface-container-high rounded-lg flex items-center justify-center border border-outline-variant shadow-[2px_2px_0_0_rgba(0,0,0,1)]">
+<span class="material-symbols-outlined text-secondary-fixed-dim" style="font-variation-settings: 'FILL' 1;">groups</span>
+</div>
+<span class="font-label-mono text-[10px] bg-secondary-fixed-dim/20 text-secondary-fixed-dim px-2 py-1 rounded border border-secondary-fixed-dim/30 uppercase">Operational</span>
+</div>
+<div>
+<h3 class="font-headline-lg text-headline-lg-mobile text-brushed-silver uppercase mb-1">Human Resources</h3>
+<p class="text-outline text-sm">Policy management and employee lifecycle intelligence.</p>
+</div>
+<div class="grid grid-cols-2 gap-2 mt-2">
+<div class="bg-surface-container-lowest p-3 rounded border border-outline-variant/30">
+<p class="font-label-mono text-[10px] text-outline uppercase">Documents</p>
+<p class="font-display-lg text-headline-lg-mobile text-primary">1,284</p>
+</div>
+<div class="bg-surface-container-lowest p-3 rounded border border-outline-variant/30">
+<p class="font-label-mono text-[10px] text-outline uppercase">Members</p>
+<p class="font-display-lg text-headline-lg-mobile text-secondary-fixed-dim">24</p>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-2">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border border-deep-gunmetal bg-surface-container-high flex items-center justify-center text-[10px] font-bold">JD</div>
+<div class="w-8 h-8 rounded-full border border-deep-gunmetal bg-surface-container-high flex items-center justify-center text-[10px] font-bold">AL</div>
+<div class="w-8 h-8 rounded-full border border-deep-gunmetal bg-surface-container-high flex items-center justify-center text-[10px] font-bold">MK</div>
+</div>
+<span class="text-outline text-xs font-label-mono">+21 others</span>
+</div>
+</div>
+<!-- Legal Workspace -->
+<div class="milled-edge p-6 flex flex-col gap-4 group hover:translate-y-[-4px] transition-all duration-300 relative overflow-hidden">
+<div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-tertiary to-error animate-flow"></div>
+<div class="flex justify-between items-start">
+<div class="w-12 h-12 bg-surface-container-high rounded-lg flex items-center justify-center border border-outline-variant shadow-[2px_2px_0_0_rgba(0,0,0,1)]">
+<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">gavel</span>
+</div>
+<span class="font-label-mono text-[10px] bg-tertiary/20 text-tertiary px-2 py-1 rounded border border-tertiary/30 uppercase">High Security</span>
+</div>
+<div>
+<h3 class="font-headline-lg text-headline-lg-mobile text-brushed-silver uppercase mb-1">Legal & Compliance</h3>
+<p class="text-outline text-sm">Regulatory tracking and contractual RAG analysis.</p>
+</div>
+<div class="grid grid-cols-2 gap-2 mt-2">
+<div class="bg-surface-container-lowest p-3 rounded border border-outline-variant/30">
+<p class="font-label-mono text-[10px] text-outline uppercase">Documents</p>
+<p class="font-display-lg text-headline-lg-mobile text-primary">856</p>
+</div>
+<div class="bg-surface-container-lowest p-3 rounded border border-outline-variant/30">
+<p class="font-label-mono text-[10px] text-outline uppercase">Members</p>
+<p class="font-display-lg text-headline-lg-mobile text-secondary-fixed-dim">12</p>
+</div>
+</div>
+<div class="flex items-center justify-between mt-2">
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+<span class="text-xs font-label-mono text-tertiary">ENCRYPTED</span>
+</div>
+<button class="font-label-mono text-[10px] uppercase text-outline hover:text-tertiary transition-colors">Manage Vault</button>
+</div>
+</div>
+<!-- Sales Workspace -->
+<div class="milled-edge p-6 flex flex-col gap-4 group hover:translate-y-[-4px] transition-all duration-300 relative overflow-hidden">
+<div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-secondary-fixed-dim to-primary-container animate-flow"></div>
+<div class="flex justify-between items-start">
+<div class="w-12 h-12 bg-surface-container-high rounded-lg flex items-center justify-center border border-outline-variant shadow-[2px_2px_0_0_rgba(0,0,0,1)]">
+<span class="material-symbols-outlined text-secondary-fixed-dim" style="font-variation-settings: 'FILL' 1;">monitoring</span>
+</div>
+<span class="font-label-mono text-[10px] bg-secondary-fixed-dim/20 text-secondary-fixed-dim px-2 py-1 rounded border border-secondary-fixed-dim/30 uppercase">Active</span>
+</div>
+<div>
+<h3 class="font-headline-lg text-headline-lg-mobile text-brushed-silver uppercase mb-1">Sales Enablement</h3>
+<p class="text-outline text-sm">Market research, competitor data, and battlecards.</p>
+</div>
+<div class="grid grid-cols-2 gap-2 mt-2">
+<div class="bg-surface-container-lowest p-3 rounded border border-outline-variant/30">
+<p class="font-label-mono text-[10px] text-outline uppercase">Documents</p>
+<p class="font-display-lg text-headline-lg-mobile text-primary">3,412</p>
+</div>
+<div class="bg-surface-container-lowest p-3 rounded border border-outline-variant/30">
+<p class="font-label-mono text-[10px] text-outline uppercase">Members</p>
+<p class="font-display-lg text-headline-lg-mobile text-secondary-fixed-dim">56</p>
+</div>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden mt-2">
+<div class="bg-secondary-fixed-dim h-full w-3/4 shadow-[0_0_8px_#00dbe9]"></div>
+</div>
+<p class="font-label-mono text-[10px] text-outline uppercase text-right">Quota Utilization: 75%</p>
+</div>
+<!-- R&D Workspace -->
+<div class="milled-edge p-6 flex flex-col gap-4 group hover:translate-y-[-4px] transition-all duration-300 relative overflow-hidden lg:col-span-2">
+<div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-tertiary animate-flow"></div>
+<div class="flex justify-between items-start">
+<div class="w-12 h-12 bg-surface-container-high rounded-lg flex items-center justify-center border border-outline-variant shadow-[2px_2px_0_0_rgba(0,0,0,1)]">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">biotech</span>
+</div>
+<div class="flex gap-2">
+<span class="font-label-mono text-[10px] bg-primary/20 text-primary px-2 py-1 rounded border border-primary/30 uppercase">Priority One</span>
+<span class="font-label-mono text-[10px] bg-tertiary/20 text-tertiary px-2 py-1 rounded border border-tertiary/30 uppercase">Experimental</span>
+</div>
+</div>
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div class="max-w-md">
+<h3 class="font-display-lg text-headline-lg text-brushed-silver uppercase mb-1">Research & Development</h3>
+<p class="text-outline text-sm">Next-gen multi-LLM orchestration and proprietary RAG vector stores.</p>
+</div>
+<div class="flex gap-4">
+<div class="bg-surface-container-lowest p-4 rounded border border-outline-variant/30 text-center min-w-[120px]">
+<p class="font-label-mono text-[10px] text-outline uppercase">Active Models</p>
+<p class="font-display-lg text-headline-lg-mobile text-primary">09</p>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded border border-outline-variant/30 text-center min-w-[120px]">
+<p class="font-label-mono text-[10px] text-outline uppercase">Documents</p>
+<p class="font-display-lg text-headline-lg-mobile text-secondary-fixed-dim">14.2k</p>
+</div>
+</div>
+</div>
+<div class="mt-4 p-4 bg-deep-gunmetal rounded border border-primary/20 relative overflow-hidden brushed-texture">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary animate-pulse">sync_alt</span>
+<span class="font-label-mono text-xs uppercase tracking-tighter text-on-surface">Live Vector Indexing In Progress... (92%)</span>
+</div>
+</div>
+</div>
+<!-- Create New Workspace (Dashed) -->
+<button class="border-2 border-dashed border-outline-variant hover:border-secondary-fixed-dim hover:bg-surface-container-low transition-all duration-300 rounded p-8 flex flex-col items-center justify-center gap-4 group">
+<div class="w-16 h-16 rounded-full border-2 border-dashed border-outline-variant group-hover:border-secondary-fixed-dim group-hover:scale-110 transition-all flex items-center justify-center">
+<span class="material-symbols-outlined text-outline group-hover:text-secondary-fixed-dim scale-150">add</span>
+</div>
+<div class="text-center">
+<span class="font-headline-lg text-headline-lg-mobile text-outline group-hover:text-brushed-silver uppercase">Create New Workspace</span>
+<p class="font-label-mono text-[10px] text-outline uppercase mt-1">Initialize isolated RAG node</p>
+</div>
+</button>
+</div>
+<!-- Floating Fallback Indicator -->
+<div class="fixed bottom-8 right-8 z-50">
+<div class="bg-deep-gunmetal border border-tertiary-container flex items-center p-1 shadow-2xl rounded overflow-hidden">
+<div class="w-8 h-8 bg-tertiary-container flex items-center justify-center text-on-tertiary-container">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">warning</span>
+</div>
+<div class="px-4 py-2 flex flex-col">
+<span class="font-label-mono text-[10px] text-tertiary uppercase font-bold tracking-widest">Model Fallback Active</span>
+<span class="text-[9px] text-outline uppercase">Latency Optimized Engine engaged</span>
+</div>
+<div class="h-10 w-4 relative overflow-hidden">
+<div class="absolute inset-0 bg-[repeating-linear-gradient(45deg,#c9005f,#c9005f_10px,#101214_10px,#101214_20px)] w-[200%] h-full"></div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Micro-interaction Scripts -->
+<script>
+        // Interactive Glow Effect for Cards
+        document.querySelectorAll('.milled-edge').forEach(card => {
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                card.style.setProperty('--mouse-x', `${x}px`);
+                card.style.setProperty('--mouse-y', `${y}px`);
+            });
+        });
+
+        // Simple scale effect for navigation links
+        document.querySelectorAll('nav a').forEach(link => {
+            link.addEventListener('mousedown', () => link.classList.add('scale-95'));
+            link.addEventListener('mouseup', () => link.classList.remove('scale-95'));
+            link.addEventListener('mouseleave', () => link.classList.remove('scale-95'));
+        });
+    </script>
+</body></html>

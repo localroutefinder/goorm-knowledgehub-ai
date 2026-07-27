@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Goorm KnowledgeHub AI | Chat</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&amp;family=Montserrat:ital,wght@0,700;0,800;0,900;1,900&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "deep-gunmetal": "#101214",
+                    "error": "#ffb4ab",
+                    "on-tertiary-container": "#ffdce2",
+                    "steel-blue": "#4A5568",
+                    "primary-fixed-dim": "#cbbeff",
+                    "on-error": "#690005",
+                    "secondary": "#d3fbff",
+                    "secondary-container": "#00eefc",
+                    "outline-variant": "#484456",
+                    "on-surface": "#e2e2e5",
+                    "secondary-fixed": "#7df4ff",
+                    "halftone-dot": "rgba(255, 255, 255, 0.05)",
+                    "primary": "#cbbeff",
+                    "error-container": "#93000a",
+                    "tertiary-container": "#c9005f",
+                    "secondary-fixed-dim": "#00dbe9",
+                    "on-primary-fixed-variant": "#4c00d3",
+                    "primary-container": "#6c38ff",
+                    "inverse-surface": "#e2e2e5",
+                    "on-primary": "#340098",
+                    "surface": "#121416",
+                    "inverse-on-surface": "#2f3133",
+                    "brushed-silver": "#E2E8F0",
+                    "on-background": "#e2e2e5",
+                    "on-error-container": "#ffdad6",
+                    "tertiary-fixed-dim": "#ffb1c3",
+                    "surface-bright": "#37393b",
+                    "outline": "#938ea2",
+                    "surface-container-low": "#1a1c1e",
+                    "on-secondary-fixed": "#002022",
+                    "on-surface-variant": "#cac3d9",
+                    "surface-tint": "#cbbeff",
+                    "background": "#121416",
+                    "surface-container-high": "#282a2c",
+                    "on-tertiary-fixed": "#3f0019",
+                    "inverse-primary": "#642cf7",
+                    "tertiary-fixed": "#ffd9e0",
+                    "on-tertiary": "#66002c",
+                    "tertiary": "#ffb1c3",
+                    "on-secondary-fixed-variant": "#004f54",
+                    "on-primary-container": "#e9e0ff",
+                    "surface-container-lowest": "#0c0e10",
+                    "on-tertiary-fixed-variant": "#8f0041",
+                    "primary-fixed": "#e7deff",
+                    "on-secondary": "#00363a",
+                    "on-primary-fixed": "#1e0060",
+                    "surface-variant": "#333537",
+                    "surface-container": "#1e2022",
+                    "on-secondary-container": "#00686f",
+                    "surface-container-highest": "#333537",
+                    "surface-dim": "#121416"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "gutter": "24px",
+                    "container-max": "1440px",
+                    "margin-mobile": "16px",
+                    "base": "8px",
+                    "margin-desktop": "40px"
+            },
+            "fontFamily": {
+                    "label-mono": ["JetBrains Mono"],
+                    "headline-lg": ["Montserrat"],
+                    "display-lg": ["Montserrat"],
+                    "body-md": ["Inter"],
+                    "headline-lg-mobile": ["Montserrat"]
+            },
+            "fontSize": {
+                    "label-mono": ["12px", {"lineHeight": "1.0", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "display-lg": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "1.2", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .halftone-dot {
+            background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 8px 8px;
+        }
+        .milled-edge {
+            border: 1px solid transparent;
+            background-clip: padding-box, border-box;
+            background-origin: padding-box, border-box;
+            background-image: linear-gradient(to bottom, #101214, #101214), linear-gradient(to bottom, rgba(255,255,255,0.2), rgba(0,0,0,0.4));
+        }
+        .pop-shadow {
+            box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 1);
+        }
+        .active-glow-gpt { box-shadow: inset 0 0 10px #22c55e, 0 0 15px rgba(34, 197, 94, 0.3); border-color: #22c55e; }
+        .active-glow-claude { box-shadow: inset 0 0 10px #f97316, 0 0 15px rgba(249, 115, 22, 0.3); border-color: #f97316; }
+        .active-glow-gemini { box-shadow: inset 0 0 10px #3b82f6, 0 0 15px rgba(59, 130, 246, 0.3); border-color: #3b82f6; }
+        .active-glow-perplexity { box-shadow: inset 0 0 10px #06b6d4, 0 0 15px rgba(6, 182, 212, 0.3); border-color: #06b6d4; }
+        .auto-gradient {
+            background: linear-gradient(45deg, #6c38ff, #00eefc, #ffb1c3, #6c38ff);
+            background-size: 300% 300%;
+            animation: gradient-flow 5s ease infinite;
+        }
+        @keyframes gradient-flow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .sidebar-hide-scrollbar::-webkit-scrollbar { display: none; }
+        .sidebar-hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-deep-gunmetal text-on-surface font-body-md selection:bg-secondary-container selection:text-on-secondary-container">
+<!-- Global Navigation Shell (SideNavBar from JSON) -->
+<aside class="fixed left-0 top-0 h-full flex flex-col z-40 bg-deep-gunmetal border-r border-white/10 shadow-[4px_0px_0px_0px_rgba(0,0,0,1)] w-64">
+<div class="p-gutter flex items-center gap-3">
+<img alt="KnowledgeHub Logo" class="w-10 h-10 rounded-lg border border-white/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAbzhNUx4B1m0yjmpIwSjKlKYtFgMy0rTz0uHukYx_spP3WxH9jzSD3N1jCLqxJkSZb1GKE3v10NNHxZ1nxhzudiR06THHVw36_cFQHjLxaxGsBDC9Csqd0f7zaKm2jYf06xg5NWQmWwlaShvgrnn2rn29Wa-iBr6G_yO2Ly1ijA9l3stcGAqjzCec4V-Nud1Boo-e3o1MigQdv7YMzq6AJQvxk86U7wNSfGk_kuH4Shqx7knz8-GDNPPn8zpZBv4K4EZr5H96uIgCB"/>
+<div>
+<h1 class="font-display-lg text-headline-lg text-primary uppercase tracking-tighter leading-none">Knowledge</h1>
+<p class="font-label-mono text-[10px] text-on-surface-variant">Precision RAG AI</p>
+</div>
+</div>
+<nav class="mt-8 flex-1">
+<ul class="space-y-1 px-2">
+<li>
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container border-l-4 border-secondary inset-shadow-sm font-label-mono text-label-mono transition-all duration-100 ease-in-out active:scale-95" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+                        Dashboard
+                    </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary hover:bg-surface-variant/50 transition-colors font-label-mono text-label-mono" href="#">
+<span class="material-symbols-outlined">forum</span>
+                        Chat
+                    </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary hover:bg-surface-variant/50 transition-colors font-label-mono text-label-mono" href="#">
+<span class="material-symbols-outlined">description</span>
+                        Documents
+                    </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary hover:bg-surface-variant/50 transition-colors font-label-mono text-label-mono" href="#">
+<span class="material-symbols-outlined">grid_view</span>
+                        Workspaces
+                    </a>
+</li>
+</ul>
+</nav>
+<div class="mt-auto border-t border-white/5 p-4 space-y-4">
+<button class="w-full bg-primary text-on-primary py-3 px-4 font-label-mono text-label-mono font-bold uppercase tracking-widest pop-shadow border border-white/20 flex items-center justify-center gap-2 transition-transform hover:-translate-y-0.5 active:translate-y-0.5">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+                New Chat
+            </button>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-secondary transition-colors font-label-mono text-label-mono" href="#">
+<span class="material-symbols-outlined">settings</span>
+                    Settings
+                </a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-secondary transition-colors font-label-mono text-label-mono" href="#">
+<span class="material-symbols-outlined">help</span>
+                    Support
+                </a>
+</div>
+</div>
+</aside>
+<!-- App Main Layout -->
+<main class="ml-64 flex h-screen overflow-hidden">
+<!-- Filter/Tree Sidebar (Specific to Chat Interface) -->
+<section class="w-64 border-r border-outline-variant bg-surface-container-low flex flex-col halftone-dot overflow-y-auto sidebar-hide-scrollbar">
+<div class="p-6">
+<h3 class="font-label-mono text-label-mono text-primary-fixed uppercase tracking-widest mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">filter_alt</span> Context Filters
+                </h3>
+<div class="space-y-6">
+<!-- Tree View Item -->
+<div>
+<button class="flex items-center gap-2 w-full text-left font-bold text-on-surface hover:text-secondary transition-colors mb-2">
+<span class="material-symbols-outlined text-sm">keyboard_arrow_down</span>
+<span class="font-label-mono text-label-mono">HR DEPT</span>
+</button>
+<div class="pl-6 space-y-2 border-l border-outline-variant ml-2">
+<a class="block text-sm text-on-surface-variant hover:text-primary transition-colors py-1" href="#">Manuals &amp; SOPs</a>
+<a class="block text-sm text-on-surface-variant hover:text-primary transition-colors py-1" href="#">Benefits 2024</a>
+<a class="block text-sm text-primary font-bold py-1 flex items-center gap-2" href="#">
+<span class="w-1 h-1 bg-primary rounded-full"></span>
+                                Payroll Logic
+                            </a>
+</div>
+</div>
+<div>
+<button class="flex items-center gap-2 w-full text-left font-bold text-on-surface hover:text-secondary transition-colors mb-2">
+<span class="material-symbols-outlined text-sm">keyboard_arrow_right</span>
+<span class="font-label-mono text-label-mono">LEGAL</span>
+</button>
+</div>
+<div>
+<button class="flex items-center gap-2 w-full text-left font-bold text-on-surface hover:text-secondary transition-colors mb-2">
+<span class="material-symbols-outlined text-sm">keyboard_arrow_right</span>
+<span class="font-label-mono text-label-mono">R&amp;D LABS</span>
+</button>
+</div>
+</div>
+<div class="mt-12">
+<h4 class="font-label-mono text-[10px] text-outline uppercase tracking-widest mb-4">Active Knowledge Bases</h4>
+<div class="space-y-3">
+<div class="p-3 bg-surface-variant/30 rounded border border-white/5 flex items-center justify-between">
+<span class="text-xs font-medium">Compliance_Matrix_v2</span>
+<span class="material-symbols-outlined text-sm text-secondary">verified</span>
+</div>
+<div class="p-3 bg-surface-variant/30 rounded border border-white/5 flex items-center justify-between">
+<span class="text-xs font-medium">Internal_Tech_Docs</span>
+<span class="material-symbols-outlined text-sm text-secondary">verified</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Main Chat Area -->
+<section class="flex-1 flex flex-col bg-background relative">
+<!-- Top App Bar (From JSON/System Rules) -->
+<header class="h-16 w-full border-b border-white/5 bg-surface/80 backdrop-blur-xl halftone-dot flex items-center justify-between px-gutter sticky top-0 z-30">
+<div class="flex items-center gap-4">
+<span class="font-headline-lg text-headline-lg font-black text-primary italic">Goorm KnowledgeHub</span>
+<span class="px-2 py-1 bg-tertiary-container text-on-tertiary-container font-label-mono text-[10px] rounded uppercase tracking-tighter">Enterprise RAG</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden md:flex items-center gap-6">
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-all" href="#">Workspaces</a>
+<a class="text-secondary border-b-2 border-secondary font-bold" href="#">Documents</a>
+</div>
+<div class="flex items-center gap-3">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-all">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-all">history</button>
+<div class="w-8 h-8 rounded-full border border-primary/50 bg-surface-variant flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A cinematic, high-resolution portrait of a professional technology executive with sharp focus and dramatic lighting. The background features blurred metallic server racks and neon purple highlights consistent with a futuristic AI enterprise environment. The style is crisp, clean, and highlights the precision of an aerospace engineer." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnXIR9hdR8r68JJ15htIzbTsLMQ7arSeNRCF6b1eog8iVHkYo5hO_SqRLApA1MD_YYrzu4OhBjnghV49l9Mjebc5JmOoxmffRdqqTe7um6LaTVdaWbvP5dM10T2O_H_9PcrBASk_fv3n4ByZdp_-eMzWkxkayBjHr7n_BLjYzS91bWgqhHFGG1nZiNLdo3Htib0suRMn-uV8Dequp-1fYvT-0mvpmc2NiMjeACsGyIK_lZlYJsEtlqOM3m83btlrCj9Qg5Q9w2BC_p"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Model Selector Bar -->
+<div class="p-6 bg-deep-gunmetal/50 border-b border-outline-variant">
+<div class="flex flex-wrap items-center gap-4">
+<button class="flex-1 min-w-[120px] py-4 px-6 milled-edge font-headline-lg text-sm flex flex-col items-center gap-1 active-glow-gpt transition-all group">
+<span class="text-[10px] font-label-mono text-outline group-hover:text-green-400">GPT-4o</span>
+<span class="font-black text-green-400">OPENAI</span>
+</button>
+<button class="flex-1 min-w-[120px] py-4 px-6 milled-edge font-headline-lg text-sm flex flex-col items-center gap-1 hover:border-orange-500/50 transition-all group">
+<span class="text-[10px] font-label-mono text-outline group-hover:text-orange-400">Claude 3.5</span>
+<span class="font-black text-on-surface-variant group-hover:text-orange-400">ANTHROPIC</span>
+</button>
+<button class="flex-1 min-w-[120px] py-4 px-6 milled-edge font-headline-lg text-sm flex flex-col items-center gap-1 hover:border-blue-500/50 transition-all group">
+<span class="text-[10px] font-label-mono text-outline group-hover:text-blue-400">Gemini 1.5 Pro</span>
+<span class="font-black text-on-surface-variant group-hover:text-blue-400">GOOGLE</span>
+</button>
+<button class="flex-1 min-w-[120px] py-4 px-6 milled-edge font-headline-lg text-sm flex flex-col items-center gap-1 hover:border-cyan-500/50 transition-all group">
+<span class="text-[10px] font-label-mono text-outline group-hover:text-cyan-400">Llama 3</span>
+<span class="font-black text-on-surface-variant group-hover:text-cyan-400">META</span>
+</button>
+<button class="flex-1 min-w-[120px] py-4 px-6 auto-gradient rounded border border-white/40 font-headline-lg text-sm flex flex-col items-center justify-center gap-1 shadow-[0_0_20px_rgba(108,56,255,0.4)] transition-all transform hover:scale-105 active:scale-95">
+<span class="font-black text-white italic tracking-tighter">AUTO-OPTIMIZE</span>
+</button>
+</div>
+</div>
+<!-- Chat Feed -->
+<div class="flex-1 overflow-y-auto p-gutter space-y-8 sidebar-hide-scrollbar halftone-dot bg-deep-gunmetal/20">
+<!-- User Message -->
+<div class="flex justify-end">
+<div class="max-w-[80%] bg-steel-blue text-white p-6 rounded-sm pop-shadow border border-white/10 relative">
+<p class="font-body-md">Can you analyze the recent payroll changes in the HR Manual? I need to know the specific delta between the June and July logic for overtime calculations.</p>
+<span class="absolute -top-3 right-4 font-label-mono text-[10px] bg-primary-container px-2 py-1 text-white">USER :: 14:02:11</span>
+</div>
+</div>
+<!-- AI Response -->
+<div class="flex justify-start">
+<div class="max-w-[90%] bg-deep-gunmetal border border-secondary/40 p-6 rounded-sm relative halftone-dot">
+<div class="flex items-center gap-2 mb-4">
+<div class="w-6 h-6 bg-secondary-container rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-xs text-on-secondary">smart_toy</span>
+</div>
+<span class="font-label-mono text-xs text-secondary font-bold uppercase">Goorm Intelligence</span>
+<span class="text-[10px] text-outline">GPT-4o (Optimized)</span>
+</div>
+<div class="space-y-4 text-on-surface leading-relaxed">
+<p>Based on the <strong class="text-secondary">Payroll_Logic_v4.pdf</strong> and the latest <strong class="text-secondary">HR_Policy_Manual</strong>, I have identified two primary changes in the overtime calculation logic:</p>
+<ul class="list-none space-y-3 pl-2">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary text-sm mt-1">check_circle</span>
+<span><strong class="text-primary-fixed">Threshold Adjustment:</strong> The baseline for 'Tier 2' overtime has shifted from 45 hours/week to 42.5 hours/week.</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary text-sm mt-1">check_circle</span>
+<span><strong class="text-primary-fixed">Multiplier Cap:</strong> Weekend multipliers are now capped at 2.2x instead of the previous 2.5x for non-essential staff.</span>
+</li>
+</ul>
+<div class="mt-6 p-4 bg-surface-container-high border-l-4 border-secondary/50 rounded-r">
+<h5 class="text-[10px] font-label-mono text-outline uppercase mb-2">Sources Found (3)</h5>
+<div class="flex gap-3">
+<button class="bg-surface p-2 border border-outline-variant hover:border-secondary transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">description</span>
+<span class="text-xs">Payroll_Logic_v4.pdf [p. 14]</span>
+</button>
+<button class="bg-surface p-2 border border-outline-variant hover:border-secondary transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">description</span>
+<span class="text-xs">July_Update_Memo.docx [p. 2]</span>
+</button>
+</div>
+</div>
+</div>
+<span class="absolute -top-3 left-4 font-label-mono text-[10px] bg-secondary-container px-2 py-1 text-on-secondary-container">AI :: 14:02:15</span>
+</div>
+</div>
+<!-- Fallback Indicator Example -->
+<div class="w-full h-8 overflow-hidden relative border-y border-tertiary/20">
+<div class="absolute inset-0 opacity-20" style="background: repeating-linear-gradient(45deg, #ffb1c3, #ffb1c3 10px, #000 10px, #000 20px);"></div>
+<div class="relative h-full flex items-center justify-center">
+<span class="font-label-mono text-[10px] text-tertiary font-bold uppercase tracking-[0.5em]">SYSTEM WARNING :: MODEL FALLBACK DETECTED :: REDUCED PRECISION</span>
+</div>
+</div>
+</div>
+<!-- Input Area -->
+<div class="p-gutter bg-surface-container border-t border-outline-variant relative">
+<div class="max-w-4xl mx-auto flex gap-4">
+<div class="flex-1 relative group">
+<input class="w-full bg-deep-gunmetal border-2 border-outline-variant focus:border-secondary focus:ring-0 text-on-surface font-label-mono px-6 py-4 rounded-lg transition-all inset-shadow-sm group-hover:border-primary/50" placeholder="Query KnowledgeHub AI..." type="text"/>
+<div class="absolute right-4 top-1/2 -translate-y-1/2 flex gap-3">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary">attach_file</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary">mic</button>
+</div>
+</div>
+<button class="bg-primary text-on-primary font-black px-8 py-4 rounded-lg pop-shadow border border-white/20 active:translate-x-1 active:translate-y-1 active:shadow-none transition-all flex items-center gap-2 group">
+<span class="font-headline-lg italic">SEND</span>
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">bolt</span>
+</button>
+</div>
+<div class="max-w-4xl mx-auto mt-3 flex justify-between">
+<div class="flex gap-4">
+<span class="text-[10px] font-label-mono text-outline flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> ENGINE: GPT-4o</span>
+<span class="text-[10px] font-label-mono text-outline flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-secondary"></span> CONTEXT: Payroll_v4</span>
+</div>
+<p class="text-[10px] font-label-mono text-outline">Press Enter to send. Use / for commands.</p>
+</div>
+</div>
+</section>
+</main>
+<script>
+        // Micro-interactions for model selector
+        const modelButtons = document.querySelectorAll('.milled-edge');
+        modelButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                modelButtons.forEach(b => {
+                    b.classList.remove('active-glow-gpt', 'active-glow-claude', 'active-glow-gemini', 'active-glow-perplexity');
+                    b.querySelector('.font-black').classList.replace('text-on-surface', 'text-on-surface-variant');
+                });
+                
+                const text = btn.querySelector('.font-black').innerText;
+                if (text === 'OPENAI') btn.classList.add('active-glow-gpt');
+                if (text === 'ANTHROPIC') btn.classList.add('active-glow-claude');
+                if (text === 'GOOGLE') btn.classList.add('active-glow-gemini');
+                if (text === 'META') btn.classList.add('active-glow-perplexity');
+                
+                btn.querySelector('.font-black').classList.replace('text-on-surface-variant', 'text-on-surface');
+            });
+        });
+    </script>
+</body></html>
