@@ -2,7 +2,9 @@ import { orchestrate } from './orchestrator.js'
 import { callProvider } from './providers.js'
 import {
   hasProviderKey,
+  normalizeGenerationOptions,
   type DeliberationStep,
+  type GenerationOptions,
   type LlmResult,
   type PromptMode,
   type ProviderModel,
@@ -11,6 +13,18 @@ import {
 const DRAFT_POOL: ProviderModel[] = ['gpt', 'claude', 'gemini']
 const WEB_DRAFT_POOL: ProviderModel[] = ['gpt', 'claude', 'gemini', 'perplexity']
 
+function mergeSources(base: string[], citations?: string[]): string[] {
+  const seen = new Set(base)
+  const out = [...base]
+  for (const c of citations ?? []) {
+    const t = c.trim()
+    if (!t || seen.has(t)) continue
+    seen.add(t)
+    out.push(t)
+  }
+  return out
+}
+
 export async function runDeliberation(
   question: string,
   options: {
@@ -18,10 +32,12 @@ export async function runDeliberation(
     sources?: string[]
     mode?: PromptMode
     ragWeak?: boolean
+    generation?: GenerationOptions
   } = {},
 ): Promise<LlmResult> {
+  const generation = normalizeGenerationOptions(options.generation)
   const mode: PromptMode = options.mode ?? (options.ragWeak ? 'hybrid' : 'docs')
-  const sources = options.sources ?? []
+  let sources = options.sources ?? []
   const started = Date.now()
   const pool = (mode === 'web' ? WEB_DRAFT_POOL : DRAFT_POOL).filter((m) =>
     hasProviderKey(m),
@@ -32,9 +48,9 @@ export async function runDeliberation(
   }
 
   const modeNote = ` · mode=${mode}`
-  const ragNote =
+  const ragNote = () =>
     sources.length > 0
-      ? ` · RAG sources=${sources.length}`
+      ? ` · sources=${sources.length}`
       : options.ragWeak
         ? ' · RAG weak → general/web'
         : ' · RAG none'
@@ -42,22 +58,30 @@ export async function runDeliberation(
   // Single model: no multi-party deliberation
   if (pool.length === 1) {
     const model = pool[0]
-    const answer = await callProvider(model, question, options.ragContext, mode)
+    const result = await callProvider(
+      model,
+      question,
+      options.ragContext,
+      mode,
+      generation,
+    )
+    sources = mergeSources(sources, result.citations)
     const step: DeliberationStep = {
       round: 1,
       model,
       role: 'draft',
-      content: answer,
+      content: result.answer,
     }
     return {
-      answer,
+      answer: result.answer,
       model,
       mode,
       sources,
       fallbackUsed: false,
       latencyMs: Date.now() - started,
-      routeReason: `Auto deliberate · 단독 응답 (${model.toUpperCase()})${modeNote}${ragNote}`,
+      routeReason: `Auto deliberate · 단독 응답 (${model.toUpperCase()})${modeNote}${ragNote()}`,
       deliberation: [step],
+      generation,
     }
   }
 
@@ -65,16 +89,27 @@ export async function runDeliberation(
   const draftResults = await Promise.all(
     participants.map(async (model) => {
       try {
-        const content = await callProvider(
+        const result = await callProvider(
           model,
           question,
           options.ragContext,
           mode,
+          generation,
         )
-        return { model, content, error: null as string | null }
+        return {
+          model,
+          content: result.answer,
+          citations: result.citations,
+          error: null as string | null,
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
-        return { model, content: '', error: message }
+        return {
+          model,
+          content: '',
+          citations: undefined as string[] | undefined,
+          error: message,
+        }
       }
     }),
   )
@@ -83,6 +118,10 @@ export async function runDeliberation(
   const draftErrors = draftResults
     .filter((d) => d.error)
     .map((d) => `${d.model}: ${d.error}`)
+
+  for (const d of drafts) {
+    sources = mergeSources(sources, d.citations)
+  }
 
   if (drafts.length === 0) {
     throw new Error(
@@ -106,8 +145,9 @@ export async function runDeliberation(
       sources,
       fallbackUsed: false,
       latencyMs: Date.now() - started,
-      routeReason: `Auto deliberate · 초안 1건만 성공 (${only.model.toUpperCase()})${modeNote}${ragNote}`,
+      routeReason: `Auto deliberate · 초안 1건만 성공 (${only.model.toUpperCase()})${modeNote}${ragNote()}`,
       deliberation,
+      generation,
     }
   }
 
@@ -152,7 +192,15 @@ ${draftBlock}
   let chairRaw: string
   try {
     const synthHint = `${options.ragContext?.trim() ? `${options.ragContext.trim()}\n\n` : ''}당신은 멀티 LLM 협의의 의장(Chair)입니다. 초안의 공통점과 차이를 정리하고 최종 답변을 확정하세요.`
-    chairRaw = await callProvider(chair, chairQuestion, synthHint, mode)
+    const chairResult = await callProvider(
+      chair,
+      chairQuestion,
+      synthHint,
+      mode,
+      generation,
+    )
+    chairRaw = chairResult.answer
+    sources = mergeSources(sources, chairResult.citations)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     const fallback = drafts[0]
@@ -170,8 +218,9 @@ ${draftBlock}
       fallbackUsed: true,
       latencyMs: Date.now() - started,
       orchestration: orch,
-      routeReason: `Auto deliberate → chair 실패 · draft ${fallback.model.toUpperCase()} 채택${modeNote}${ragNote}`,
+      routeReason: `Auto deliberate → chair 실패 · draft ${fallback.model.toUpperCase()} 채택${modeNote}${ragNote()}`,
       deliberation,
+      generation,
     }
   }
 
@@ -200,8 +249,9 @@ ${draftBlock}
     fallbackUsed: false,
     latencyMs: Date.now() - started,
     orchestration: orch,
-    routeReason: `Auto deliberate · Round1=${names} → Chair ${chair.toUpperCase()} (intent=${orch.intent})${modeNote}${ragNote}`,
+    routeReason: `Auto deliberate · Round1=${names} → Chair ${chair.toUpperCase()} (intent=${orch.intent})${modeNote}${ragNote()}`,
     deliberation,
+    generation,
   }
 }
 

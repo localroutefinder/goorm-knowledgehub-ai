@@ -6,7 +6,18 @@ import {
   mockUsageLogs,
   mockWorkspaces,
 } from '@/services/mockData'
-import type { ChatMessage, DocumentItem, LlmModel, Workspace } from '@/types'
+import {
+  ensureActiveSession,
+  listSessions,
+  saveSessionMessages,
+} from '@/services/chatSessions'
+import type {
+  ChatGenerationPrefs,
+  ChatMessage,
+  DocumentItem,
+  LlmModel,
+  Workspace,
+} from '@/types'
 
 function delay(ms = 200) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -135,66 +146,15 @@ export async function fetchDashboard(workspaceId?: string) {
   }
 }
 
-const CHAT_KEY_PREFIX = 'kh_chat_history:'
-const CHAT_HISTORY_LIMIT = 80
-const VALID_MODELS = new Set(['gpt', 'claude', 'gemini', 'perplexity', 'auto'])
-const VALID_ROLES = new Set(['user', 'assistant'])
-
-function chatStorageKey(workspaceId: string): string {
-  return `${CHAT_KEY_PREFIX}${workspaceId || 'ws-hr'}`
-}
-
-function isChatMessage(value: unknown): value is ChatMessage {
-  if (!value || typeof value !== 'object') return false
-  const m = value as Record<string, unknown>
-  if (typeof m.id !== 'string' || !m.id) return false
-  if (typeof m.role !== 'string' || !VALID_ROLES.has(m.role)) return false
-  if (typeof m.model !== 'string' || !VALID_MODELS.has(m.model)) return false
-  if (typeof m.routeReason !== 'string') return false
-  if (typeof m.latencyMs !== 'number') return false
-  if (typeof m.createdAt !== 'string') return false
-  if (!Array.isArray(m.sources)) return false
-  return true
-}
-
-function normalizeMessages(raw: unknown): ChatMessage[] {
-  if (!Array.isArray(raw)) return []
-  return raw.filter(isChatMessage)
-}
-
-function trimMessages(messages: ChatMessage[]): ChatMessage[] {
-  if (messages.length <= CHAT_HISTORY_LIMIT) return messages
-  return messages.slice(messages.length - CHAT_HISTORY_LIMIT)
-}
-
-export function loadChatHistory(workspaceId = 'ws-hr'): ChatMessage[] {
-  try {
-    const raw = localStorage.getItem(chatStorageKey(workspaceId))
-    if (!raw) return []
-    return trimMessages(normalizeMessages(JSON.parse(raw)))
-  } catch {
-    return []
-  }
-}
-
-export function saveChatHistory(
-  workspaceId: string,
-  messages: ChatMessage[],
-): ChatMessage[] {
-  const trimmed = trimMessages(normalizeMessages(messages))
-  try {
-    localStorage.setItem(chatStorageKey(workspaceId || 'ws-hr'), JSON.stringify(trimmed))
-  } catch {
-    // Quota / private mode — keep in-memory return value
-  }
-  return trimmed
-}
-
 export async function fetchChatHistory(
   workspaceId = 'ws-hr',
+  sessionId?: string,
 ): Promise<ChatMessage[]> {
   await delay(50)
-  return loadChatHistory(workspaceId)
+  const session = sessionId
+    ? listSessions(workspaceId).find((s) => s.id === sessionId)
+    : ensureActiveSession(workspaceId)
+  return session?.messages ?? []
 }
 
 export async function sendChat(
@@ -202,8 +162,15 @@ export async function sendChat(
   model: LlmModel,
   history: ChatMessage[] = [],
   workspaceId?: string,
+  sessionId?: string,
+  generation?: Partial<ChatGenerationPrefs>,
 ): Promise<ChatMessage[]> {
   const ws = workspaceId || 'ws-hr'
+  const active = sessionId
+    ? listSessions(ws).find((s) => s.id === sessionId) ?? ensureActiveSession(ws)
+    : ensureActiveSession(ws)
+  const sid = active.id
+
   const now = new Date().toISOString()
   const userMsg: ChatMessage = {
     id: `u-${Date.now()}`,
@@ -219,7 +186,15 @@ export async function sendChat(
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question, model, workspaceId: ws }),
+    body: JSON.stringify({
+      question,
+      model,
+      workspaceId: ws,
+      temperature: generation?.temperature,
+      maxTokens: generation?.maxTokens,
+      systemInstructions: generation?.systemInstructions || undefined,
+      includeWebSearch: generation?.includeWebSearch ?? false,
+    }),
   })
 
   const data = (await res.json()) as {
@@ -253,7 +228,28 @@ export async function sendChat(
   }
 
   const next = [...history, userMsg, assistantMsg]
-  return saveChatHistory(ws, next)
+  return saveSessionMessages(ws, sid, next).messages
+}
+
+export async function fetchModels() {
+  const res = await fetch('/api/models')
+  if (!res.ok) throw new Error('Failed to fetch models')
+  return (await res.json()) as {
+    models: Array<{
+      id: LlmModel
+      label: string
+      provider: string
+      available: boolean
+      description: string
+    }>
+    defaults: { temperature: number; maxTokens: number; includeWebSearch: boolean }
+    googleSearch: boolean
+  }
+}
+
+/** @deprecated use listSessions / ensureActiveSession — kept for dashboard recent stubs */
+export function loadChatHistory(workspaceId = 'ws-hr'): ChatMessage[] {
+  return ensureActiveSession(workspaceId).messages
 }
 
 export async function fetchAnalytics(workspaceId?: string) {

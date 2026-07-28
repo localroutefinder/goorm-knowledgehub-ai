@@ -3,7 +3,18 @@ import cors from 'cors'
 import express from 'express'
 import { ensureSchema } from './db.js'
 import { runWithFallback } from './llm/fallback.js'
-import type { PromptMode, ProviderModel, RequestedModel } from './llm/types.js'
+import {
+  hasProviderKey,
+  normalizeGenerationOptions,
+  type PromptMode,
+  type ProviderModel,
+  type RequestedModel,
+} from './llm/types.js'
+import {
+  buildWebSearchContext,
+  isGoogleSearchConfigured,
+  searchGoogleWeb,
+} from './llm/webSearch.js'
 import { indexDocument, listDocuments } from './rag/indexDocument.js'
 import {
   buildRagContext,
@@ -38,6 +49,65 @@ app.get('/api/health', async (_req, res) => {
       gemini: Boolean(process.env.GOOGLE_API_KEY?.trim()),
       perplexity: Boolean(process.env.PERPLEXITY_API_KEY?.trim()),
     },
+    googleSearch: isGoogleSearchConfigured(),
+  })
+})
+
+/** API-selectable models (enterprise) */
+app.get('/api/models', (_req, res) => {
+  const models: Array<{
+    id: RequestedModel
+    label: string
+    provider: string
+    available: boolean
+    description: string
+  }> = [
+    {
+      id: 'auto',
+      label: 'AUTO',
+      provider: 'orchestrator',
+      available: (['gpt', 'claude', 'gemini', 'perplexity'] as ProviderModel[]).some(
+        hasProviderKey,
+      ),
+      description: '멀티 LLM 초안 후 Chair 합의',
+    },
+    {
+      id: 'gpt',
+      label: 'GPT',
+      provider: 'openai',
+      available: hasProviderKey('gpt'),
+      description: 'OpenAI gpt-4o-mini',
+    },
+    {
+      id: 'claude',
+      label: 'Claude',
+      provider: 'anthropic',
+      available: hasProviderKey('claude'),
+      description: 'Anthropic Claude Haiku',
+    },
+    {
+      id: 'gemini',
+      label: 'Gemini',
+      provider: 'google',
+      available: hasProviderKey('gemini'),
+      description: 'Google Gemini 2.0 Flash (+ Google Search grounding)',
+    },
+    {
+      id: 'perplexity',
+      label: 'Perplexity',
+      provider: 'perplexity',
+      available: hasProviderKey('perplexity'),
+      description: 'Perplexity Sonar (웹 검색 인용)',
+    },
+  ]
+  res.json({
+    models,
+    defaults: {
+      temperature: 0.3,
+      maxTokens: 1024,
+      includeWebSearch: false,
+    },
+    googleSearch: isGoogleSearchConfigured(),
   })
 })
 
@@ -168,6 +238,17 @@ app.post('/api/chat', async (req, res) => {
     const workspaceId = req.body?.workspaceId
       ? String(req.body.workspaceId)
       : 'ws-hr'
+    const generation = normalizeGenerationOptions({
+      temperature: req.body?.temperature,
+      maxTokens: req.body?.maxTokens,
+      systemInstructions:
+        typeof req.body?.systemInstructions === 'string'
+          ? req.body.systemInstructions
+          : undefined,
+      includeWebSearch:
+        req.body?.includeWebSearch === true ||
+        req.body?.includeWebSearch === 'true',
+    })
 
     if (!question) {
       res.status(400).json({ error: 'question is required' })
@@ -220,11 +301,37 @@ app.post('/api/chat', async (req, res) => {
       mode = model === 'perplexity' ? 'web' : 'hybrid'
     }
 
+    const wantWeb =
+      generation.includeWebSearch ||
+      model === 'perplexity' ||
+      mode === 'web' ||
+      (mode === 'hybrid' && ragWeak)
+
+    if (wantWeb && isGoogleSearchConfigured()) {
+      try {
+        const webHits = await searchGoogleWeb(question, 5)
+        const web = buildWebSearchContext(webHits)
+        if (web.context) {
+          ragContext = ragContext
+            ? `${ragContext}\n\n---\nGoogle 검색 결과:\n${web.context}`
+            : `Google 검색 결과:\n${web.context}`
+          for (const link of web.sources) {
+            if (!sources.includes(link)) sources.push(link)
+          }
+          if (mode === 'docs') mode = 'hybrid'
+          console.log(`[api/chat] Google CSE hits=${webHits.length}`)
+        }
+      } catch (err) {
+        console.warn('[api/chat] Google CSE failed', err)
+      }
+    }
+
     const result = await runWithFallback(question, model, {
       ragContext,
       sources,
       mode,
       ragWeak,
+      generation,
     })
 
     try {

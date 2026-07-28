@@ -45,6 +45,20 @@ export type LlmModel = 'gpt' | 'claude' | 'gemini' | 'perplexity' | 'auto'
 
 export type PromptMode = 'docs' | 'hybrid' | 'web'
 
+export interface ChatGenerationPrefs {
+  temperature: number
+  maxTokens: number
+  systemInstructions: string
+  includeWebSearch: boolean
+}
+
+export const DEFAULT_GENERATION_PREFS: ChatGenerationPrefs = {
+  temperature: 0.3,
+  maxTokens: 1024,
+  systemInstructions: '',
+  includeWebSearch: false,
+}
+
 export type DeliberationRole = 'draft' | 'chair'
 
 export interface DeliberationStep {
@@ -67,6 +81,15 @@ export interface ChatMessage {
   fallbackUsed?: boolean
   mode?: PromptMode
   deliberation?: DeliberationStep[]
+}
+
+export interface ChatSession {
+  id: string
+  workspaceId: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  messages: ChatMessage[]
 }
 
 export interface UsageLog {

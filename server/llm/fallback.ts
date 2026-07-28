@@ -3,6 +3,8 @@ import { callProvider } from './providers.js'
 import { routeModel } from './router.js'
 import {
   hasProviderKey,
+  normalizeGenerationOptions,
+  type GenerationOptions,
   type LlmResult,
   type PromptMode,
   type ProviderModel,
@@ -16,6 +18,18 @@ export const FALLBACK_ORDER: ProviderModel[] = [
   'perplexity',
 ]
 
+function mergeSources(base: string[], citations?: string[]): string[] {
+  const seen = new Set(base)
+  const out = [...base]
+  for (const c of citations ?? []) {
+    const t = c.trim()
+    if (!t || seen.has(t)) continue
+    seen.add(t)
+    out.push(t)
+  }
+  return out
+}
+
 export async function runWithFallback(
   question: string,
   requested: RequestedModel,
@@ -24,10 +38,13 @@ export async function runWithFallback(
     sources?: string[]
     mode?: PromptMode
     ragWeak?: boolean
+    generation?: GenerationOptions
   } = {},
 ): Promise<LlmResult> {
+  const generation = normalizeGenerationOptions(options.generation)
+
   if (requested === 'auto') {
-    return runDeliberation(question, options)
+    return runDeliberation(question, { ...options, generation })
   }
 
   const mode: PromptMode =
@@ -54,16 +71,23 @@ export async function runWithFallback(
     }
 
     try {
-      const answer = await callProvider(model, question, options.ragContext, mode)
+      const result = await callProvider(
+        model,
+        question,
+        options.ragContext,
+        mode,
+        generation,
+      )
+      const merged = mergeSources(sources, result.citations)
       const modeNote = ` · mode=${mode}`
       const ragNote =
-        sources.length > 0
-          ? ` · RAG sources=${sources.length}`
+        merged.length > 0
+          ? ` · sources=${merged.length}`
           : options.ragWeak
             ? ' · RAG weak → general/web'
             : ' · RAG none'
       return {
-        answer,
+        answer: result.answer,
         model,
         mode,
         routeReason:
@@ -72,7 +96,8 @@ export async function runWithFallback(
             : `${baseReason}${modeNote}${ragNote} · Fallback → ${model.toUpperCase()} (${errors.join('; ')})`,
         latencyMs: Date.now() - started,
         fallbackUsed: i > 0,
-        sources,
+        sources: merged,
+        generation,
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)

@@ -54,7 +54,7 @@ export function AppShell({
         <div className="space-y-1 border-t border-white/5 p-4">
           <button
             type="button"
-            onClick={() => navigate('/chat')}
+            onClick={() => navigate('/chat?new=1')}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-primary-container to-tertiary-container px-4 py-3 font-display text-sm font-bold text-white hard-shadow active:translate-y-1 active:shadow-none"
           >
             <Icon name="add" />
