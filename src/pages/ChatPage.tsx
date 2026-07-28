@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AppShell } from '@/components/shell/AppShell'
 import { AnswerView } from '@/components/ui/AnswerView'
 import { Icon } from '@/components/ui/Icon'
 import { MonoLabel } from '@/components/ui/MonoLabel'
 import { Button } from '@/components/ui/Button'
-import { fetchChatHistory, sendChat } from '@/services/api'
+import { fetchChatHistory, fetchChatQuota, sendChat } from '@/services/api'
 import {
   createSession,
   deleteSession,
@@ -14,6 +14,7 @@ import {
   listSessions,
   selectSession,
 } from '@/services/chatSessions'
+import { GUEST_CHAT_LIMIT, GUEST_WORKSPACE_ID } from '@/services/guestId'
 import { useAppStore } from '@/store/AppStore'
 import type { ChatSession, DeliberationStep, LlmModel } from '@/types'
 
@@ -261,12 +262,15 @@ function SessionListPanel({
 
 export function ChatPage() {
   const {
+    user,
     selectedModel,
     setModel,
     selectedWorkspaceId,
     generationPrefs,
     setGenerationPrefs,
   } = useAppStore()
+  const navigate = useNavigate()
+  const chatWorkspaceId = user ? selectedWorkspaceId : GUEST_WORKSPACE_ID
   const [input, setInput] = useState('')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
@@ -274,12 +278,20 @@ export function ChatPage() {
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
 
+  const { data: quota, refetch: refetchQuota } = useQuery({
+    queryKey: ['chat-quota', user?.id ?? 'guest'],
+    queryFn: () => fetchChatQuota(user?.id),
+  })
+
+  const guestBlocked =
+    !user && quota?.mode === 'guest' && (quota.remaining ?? 0) <= 0
+
   const { data: sessions = [], refetch: refetchSessions } = useQuery({
-    queryKey: ['chat-sessions', selectedWorkspaceId],
+    queryKey: ['chat-sessions', chatWorkspaceId],
     queryFn: () => {
-      const list = listSessions(selectedWorkspaceId)
+      const list = listSessions(chatWorkspaceId)
       if (list.length === 0) {
-        const s = createSession(selectedWorkspaceId)
+        const s = createSession(chatWorkspaceId)
         return [s]
       }
       return list
@@ -287,22 +299,22 @@ export function ChatPage() {
   })
 
   useEffect(() => {
-    const active = ensureActiveSession(selectedWorkspaceId)
+    const active = ensureActiveSession(chatWorkspaceId)
     setActiveSessionId(active.id)
-  }, [selectedWorkspaceId, sessions])
+  }, [chatWorkspaceId, sessions])
 
   useEffect(() => {
     if (searchParams.get('new') !== '1') return
-    const s = createSession(selectedWorkspaceId)
+    const s = createSession(chatWorkspaceId)
     setActiveSessionId(s.id)
     setInput('')
     void refetchSessions()
-    queryClient.setQueryData(['chat', selectedWorkspaceId, s.id], [])
+    queryClient.setQueryData(['chat', chatWorkspaceId, s.id], [])
     setSearchParams({}, { replace: true })
     setDrawerOpen(false)
   }, [
     searchParams,
-    selectedWorkspaceId,
+    chatWorkspaceId,
     refetchSessions,
     queryClient,
     setSearchParams,
@@ -311,8 +323,8 @@ export function ChatPage() {
   const sessionId = activeSessionId
 
   const { data: messages = [] } = useQuery({
-    queryKey: ['chat', selectedWorkspaceId, sessionId],
-    queryFn: () => fetchChatHistory(selectedWorkspaceId, sessionId ?? undefined),
+    queryKey: ['chat', chatWorkspaceId, sessionId],
+    queryFn: () => fetchChatHistory(chatWorkspaceId, sessionId ?? undefined),
     enabled: Boolean(sessionId),
   })
 
@@ -322,59 +334,71 @@ export function ChatPage() {
         q,
         selectedModel,
         messages,
-        selectedWorkspaceId,
+        chatWorkspaceId,
         sessionId ?? undefined,
         generationPrefs,
+        user?.id,
       ),
     onSuccess: (data) => {
       if (sessionId) {
-        queryClient.setQueryData(['chat', selectedWorkspaceId, sessionId], data)
+        queryClient.setQueryData(['chat', chatWorkspaceId, sessionId], data)
       }
       void refetchSessions()
+      void refetchQuota()
       setInput('')
+    },
+    onError: () => {
+      void refetchQuota()
     },
   })
 
   function handleNewChat() {
-    const s = createSession(selectedWorkspaceId)
+    const s = createSession(chatWorkspaceId)
     setActiveSessionId(s.id)
     setInput('')
     void refetchSessions()
-    queryClient.setQueryData(['chat', selectedWorkspaceId, s.id], [])
+    queryClient.setQueryData(['chat', chatWorkspaceId, s.id], [])
     setDrawerOpen(false)
   }
 
   function handleSelect(id: string) {
-    selectSession(selectedWorkspaceId, id)
+    selectSession(chatWorkspaceId, id)
     setActiveSessionId(id)
     setDrawerOpen(false)
   }
 
   function handleDelete(id: string) {
-    const next = deleteSession(selectedWorkspaceId, id)
+    const next = deleteSession(chatWorkspaceId, id)
     void refetchSessions()
     if (next) {
       setActiveSessionId(next.id)
     } else {
-      const s = createSession(selectedWorkspaceId)
+      const s = createSession(chatWorkspaceId)
       setActiveSessionId(s.id)
-      queryClient.setQueryData(['chat', selectedWorkspaceId, s.id], [])
+      queryClient.setQueryData(['chat', chatWorkspaceId, s.id], [])
       void refetchSessions()
     }
   }
 
   const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
+  const err = mutation.error as Error & { code?: string } | null
   const errorMessage =
-    mutation.error instanceof Error ? mutation.error.message : mutation.error
-      ? String(mutation.error)
-      : null
+    err?.code === 'GUEST_LIMIT'
+      ? null
+      : err instanceof Error
+        ? err.message
+        : mutation.error
+          ? String(mutation.error)
+          : null
+  const guestRemaining =
+    !user && quota?.mode === 'guest' ? (quota.remaining ?? GUEST_CHAT_LIMIT) : null
 
   return (
     <AppShell
       title="Goorm KnowledgeHub"
       topLinks={
         <span className="rounded bg-tertiary-container px-2 py-1 font-mono text-[10px] uppercase text-on-tertiary-container">
-          Enterprise RAG
+          {user ? 'Enterprise RAG' : 'Guest trial'}
         </span>
       }
     >
@@ -384,7 +408,7 @@ export function ChatPage() {
           <SessionListPanel
             sessions={sessions}
             activeId={sessionId}
-            workspaceId={selectedWorkspaceId}
+            workspaceId={chatWorkspaceId}
             onSelect={handleSelect}
             onNew={handleNewChat}
             onDelete={handleDelete}
@@ -404,7 +428,7 @@ export function ChatPage() {
               <SessionListPanel
                 sessions={sessions}
                 activeId={sessionId}
-                workspaceId={selectedWorkspaceId}
+                workspaceId={chatWorkspaceId}
                 onSelect={handleSelect}
                 onNew={handleNewChat}
                 onDelete={handleDelete}
@@ -566,6 +590,33 @@ export function ChatPage() {
                 </div>
               ) : null}
             </div>
+
+            {!user ? (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded border border-secondary/30 bg-secondary/5 px-3 py-2">
+                <MonoLabel className="text-secondary">
+                  {guestBlocked
+                    ? '게스트 체험 한도 소진 (3/3)'
+                    : `게스트 체험 · 남은 횟수 ${guestRemaining ?? '…'}/${GUEST_CHAT_LIMIT}`}
+                </MonoLabel>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    className="!px-3 !py-1.5 text-xs"
+                    onClick={() => navigate('/login?from=/chat')}
+                  >
+                    Google 로그인
+                  </Button>
+                  <button
+                    type="button"
+                    disabled
+                    title="준비중"
+                    className="rounded border border-outline-variant px-3 py-1.5 font-mono text-[10px] uppercase text-outline"
+                  >
+                    바우처 입력 (준비중)
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="flex-1 space-y-6 overflow-y-auto bg-deep-gunmetal/20 p-4 halftone-dot md:p-8">
@@ -574,7 +625,7 @@ export function ChatPage() {
                 Neon RAG가 연결되었습니다. AUTO는 멀티 LLM 협의 후 최종 답변을 만듭니다.
                 <br />
                 <span className="font-mono text-[11px] text-outline">
-                  Workspace: {selectedWorkspaceId} · 예: “신입 연차?”
+                  Workspace: {chatWorkspaceId} · 예: “신입 연차?”
                 </span>
                 <br />
                 <span className="mt-2 inline-block font-mono text-[11px] text-outline">
@@ -653,6 +704,20 @@ export function ChatPage() {
               </div>
             ) : null}
 
+            {guestBlocked || err?.code === 'GUEST_LIMIT' ? (
+              <div className="rounded border border-tertiary/40 bg-tertiary/10 px-4 py-4 text-sm text-on-surface">
+                <p className="font-medium">게스트 체험 3회를 모두 사용했습니다.</p>
+                <p className="mt-1 text-xs text-on-surface-variant">
+                  Google 로그인 또는 바우처(준비중)로 계속 이용할 수 있습니다.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button type="button" onClick={() => navigate('/login?from=/chat')}>
+                    Google 로그인
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
             {lastAssistant ? (
               <div className="rounded border border-white/10 bg-surface-container-low px-4 py-3 font-mono text-[11px] text-on-surface-variant">
                 mode: {lastAssistant.mode ?? 'n/a'} · 출처 · 라우팅 · 지연 —{' '}
@@ -666,7 +731,7 @@ export function ChatPage() {
             className="border-t border-white/5 bg-surface p-4 md:p-6"
             onSubmit={(e) => {
               e.preventDefault()
-              if (!input.trim() || mutation.isPending) return
+              if (!input.trim() || mutation.isPending || guestBlocked) return
               mutation.mutate(input.trim())
             }}
           >
@@ -678,8 +743,9 @@ export function ChatPage() {
                     key={ex.title}
                     type="button"
                     title={ex.prompt}
+                    disabled={guestBlocked}
                     onClick={() => setInput(ex.prompt)}
-                    className="shrink-0 rounded border border-outline-variant bg-surface-container-high px-2.5 py-1 font-mono text-[10px] uppercase tracking-wide text-on-surface-variant transition hover:border-secondary hover:text-secondary"
+                    className="shrink-0 rounded border border-outline-variant bg-surface-container-high px-2.5 py-1 font-mono text-[10px] uppercase tracking-wide text-on-surface-variant transition hover:border-secondary hover:text-secondary disabled:opacity-40"
                   >
                     {ex.title}
                   </button>
@@ -693,11 +759,20 @@ export function ChatPage() {
               <textarea
                 rows={2}
                 value={input}
+                disabled={guestBlocked}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="조직 문서에 대해 질문하세요…"
-                className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-outline"
+                placeholder={
+                  guestBlocked
+                    ? '체험 한도 소진 — 로그인 후 계속하세요'
+                    : '조직 문서에 대해 질문하세요…'
+                }
+                className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-outline disabled:opacity-50"
               />
-              <Button type="submit" disabled={mutation.isPending || !input.trim()} className="!px-4">
+              <Button
+                type="submit"
+                disabled={guestBlocked || mutation.isPending || !input.trim()}
+                className="!px-4"
+              >
                 <Icon name="send" />
                 SEND
               </Button>

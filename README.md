@@ -6,7 +6,7 @@
 
 ![Dashboard](docs/assets/dashboard.png)
 
-기술명세: [`doc/SPEC Goorm KnowledgeHub AI.md`](doc/SPEC%20Goorm%20KnowledgeHub%20AI.md) (Version **1.3**)
+기술명세: [`doc/SPEC Goorm KnowledgeHub AI.md`](doc/SPEC%20Goorm%20KnowledgeHub%20AI.md) (Version **1.4**)
 
 ---
 
@@ -23,6 +23,8 @@
 | **Generation 옵션** | Temperature · Max Tokens · System instructions · Web grounding |
 | **웹 근거** | Perplexity citations · Gemini Google Search · 선택 Google CSE |
 | **API 모델 선택** | `GET /api/models`, `POST /api/chat`의 `model` |
+| **Google 로그인** | Firebase Auth (`VITE_FIREBASE_*` 미설정 시 mock 폴백) |
+| **게스트 체험** | 로그인 없이 `/chat` 최대 3회 (서버 `guest_chat_quota` 강제) |
 | **사용량** | Neon `usage_logs` → Dashboard / Analytics |
 | **UI** | Metallic Pop Art, Stitch 브랜드 로고 |
 
@@ -32,6 +34,7 @@
 
 - **Web:** React 19, Vite, TypeScript, Tailwind CSS v4, React Router, TanStack Query
 - **API:** Express (`server/`), `tsx watch`
+- **Auth:** Firebase Authentication (Google) · env 미설정 시 mock
 - **DB:** Neon PostgreSQL + pgvector
 - **LLM:** OpenAI / Anthropic / Google / Perplexity (서버 `.env`만 사용)
 
@@ -51,7 +54,38 @@ npm run dev
 | Web | http://localhost:5173 |
 | API | http://localhost:8787 |
 
-로그인: **Continue with Google** (현재 mock auth)
+로그인: **Continue with Google**
+- `VITE_FIREBASE_*` 설정 시 → Firebase Google 팝업 로그인
+- 미설정 시 → Demo mock 로그인
+
+### Firebase 콘솔 설정
+
+1. [Firebase Console](https://console.firebase.google.com/)에서 프로젝트 생성
+2. Authentication → Sign-in method → **Google** 사용 설정
+3. 웹 앱 추가 후 config를 `.env`의 `VITE_FIREBASE_*`에 복사
+4. Authentication → Settings → Authorized domains에 `localhost` 포함 확인
+
+```env
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+```
+
+Vite 재시작 후 http://localhost:5173/login 에서 실로그인을 확인합니다.
+
+로그인 화면 배지가 **Google · Firebase Auth**이면 실로그인 모드입니다. **Mock · Demo Mode**이면 `.env` 6개가 비었거나 Vite를 재시작하지 않은 상태입니다.
+
+| 증상 | 조치 |
+| --- | --- |
+| `auth/unauthorized-domain` | Firebase Authorized domains에 `localhost`(또는 배포 도메인) 추가 |
+| `auth/popup-blocked` | 브라우저 팝업 허용 |
+| 팝업 닫힘 | 정상 취소 — 에러 문구 없이 로그인 화면 유지 |
+| Google 제공자 오류 | Authentication → Sign-in method에서 Google Enable |
+
+프로젝트: [Firebase Console](https://console.firebase.google.com/project/goorm-multillm-router/authentication) (로컬 `.env`의 `PROJECT_ID` 기준)
 
 ---
 
@@ -68,7 +102,7 @@ npm run dev
 | `GOOGLE_CSE_ID` | (선택) Google Custom Search 근거 링크 |
 | `DATABASE_URL` | Neon 연결 문자열 |
 | `API_PORT` | API 포트 (기본 `8787`) |
-| `VITE_FIREBASE_*` | Firebase (미설정 시 mock 로그인) |
+| `VITE_FIREBASE_API_KEY` 등 | Firebase 웹 앱 config (6개 필수, 미설정 시 mock) |
 
 상세 템플릿: [`.env.example`](.env.example)
 
@@ -80,7 +114,8 @@ npm run dev
 | --- | --- | --- |
 | `GET` | `/api/health` | DB·provider·CSE 상태 |
 | `GET` | `/api/models` | 선택 가능 모델·가용 여부 |
-| `POST` | `/api/chat` | RAG + LLM + generation 옵션 |
+| `GET` | `/api/chat/quota` | 게스트 남은 횟수 (`X-Guest-Id`) |
+| `POST` | `/api/chat` | RAG + LLM + generation 옵션 (+ 게스트 3회 한도) |
 | `GET/POST` | `/api/documents` · `/upload` | 문서 목록·인덱싱 |
 | `GET` | `/api/usage/summary` · `/analytics` | 사용량 |
 
@@ -139,6 +174,14 @@ npm run dev
 
 Generation 기본값: `kh_generation_prefs` (Temperature · Max Tokens · System · Web)
 
+### 게스트 체험 (3회)
+
+- `/chat`은 로그인 없이 진입 가능
+- 브라우저 `kh_guest_id` + Neon `guest_chat_quota`로 **성공한 채팅만** 최대 3회
+- 헤더 `X-Guest-Id` (게스트) / `X-Auth-User` (로그인 시 무제한)
+- 한도 초과 시 429 `GUEST_LIMIT` + 로그인/바우처(준비중) CTA
+- 바우처 코드 검증은 후속
+
 ---
 
 ## 스크립트
@@ -173,19 +216,21 @@ Generation 기본값: `kh_generation_prefs` (Temperature · Max Tokens · System
 
 ```text
 src/           React 앱 (pages, components, services, store)
-  services/    api, chatSessions, auth
+  services/    api, chatSessions, auth, firebase
 server/        Express API
   llm/         providers, deliberate, fallback, webSearch, …
   rag/         chunk, embed, search, seed, index
   usage/       usage_logs, analytics
-doc/           기술명세 SPEC (v1.3)
+doc/           기술명세 SPEC (v1.4)
 ```
 
 ---
 
 ## 미구현 / 로드맵
 
-- Firebase 실로그인
+- Firestore 유저 동기화 · 역할 관리
+- Express API Firebase ID 토큰 검증
+- 바우처 코드 검증 (현재 CTA만)
 - 가드레일·의미 캐시
 - PDF 바이너리 파싱 고도화
 - 채팅 서버 동기화

@@ -24,12 +24,13 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            {/* Guest trial: chat is public (server enforces 3-request quota) */}
+            <Route path="/chat" element={<ChatPage />} />
             <Route element={<ProtectedRoute />}>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/workspaces" element={<WorkspacesPage />} />
               <Route path="/workspaces/:id" element={<WorkspaceDetailPage />} />
               <Route path="/documents" element={<DocumentsPage />} />
-              <Route path="/chat" element={<ChatPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>

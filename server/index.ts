@@ -24,6 +24,14 @@ import {
   topScore,
 } from './rag/search.js'
 import { estimateTokens, getUsageSummary, recordUsage } from './usage/usage.js'
+import {
+  assertGuestCanChat,
+  authenticatedQuota,
+  getGuestQuota,
+  GUEST_CHAT_LIMIT,
+  incrementGuestChat,
+  isValidGuestId,
+} from './usage/guestQuota.js'
 
 const app = express()
 const PORT = Number(process.env.API_PORT || 8787)
@@ -261,6 +269,41 @@ app.post('/api/chat', async (req, res) => {
       return
     }
 
+    const authUserId = String(req.headers['x-auth-user'] ?? '').trim()
+    const guestIdRaw = String(req.headers['x-guest-id'] ?? '').trim()
+    const isAuthenticated = Boolean(authUserId)
+    const guestId = isValidGuestId(guestIdRaw) ? guestIdRaw : null
+    const clientIp =
+      (typeof req.headers['x-forwarded-for'] === 'string'
+        ? req.headers['x-forwarded-for'].split(',')[0]?.trim()
+        : undefined) || req.socket.remoteAddress || null
+
+    if (!isAuthenticated) {
+      if (!guestId) {
+        res.status(400).json({
+          error: 'X-Guest-Id is required for guest chat',
+          code: 'GUEST_ID_REQUIRED',
+        })
+        return
+      }
+      try {
+        await ensureSchema()
+        await assertGuestCanChat(guestId)
+      } catch (err) {
+        const e = err as Error & { code?: string; status?: { remaining: number } }
+        if (e.code === 'GUEST_LIMIT') {
+          res.status(429).json({
+            error: e.message,
+            code: 'GUEST_LIMIT',
+            remaining: 0,
+            limit: GUEST_CHAT_LIMIT,
+          })
+          return
+        }
+        throw err
+      }
+    }
+
     let sources: string[] = []
     let ragContext = ''
     let ragWeak = true
@@ -334,6 +377,12 @@ app.post('/api/chat', async (req, res) => {
       generation,
     })
 
+    let quota = isAuthenticated
+      ? authenticatedQuota()
+      : guestId
+        ? await incrementGuestChat(guestId, clientIp)
+        : null
+
     try {
       if (result.deliberation?.length) {
         for (const step of result.deliberation) {
@@ -380,11 +429,55 @@ app.post('/api/chat', async (req, res) => {
       console.warn('[api/chat] usage log failed', err)
     }
 
-    res.json(result)
+    res.json({
+      ...result,
+      quota: quota
+        ? {
+            mode: quota.mode,
+            limit: quota.limit,
+            used: quota.used,
+            remaining: quota.remaining,
+          }
+        : undefined,
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     console.error('[api/chat]', message)
     res.status(502).json({ error: message })
+  }
+})
+
+/** Guest / auth chat quota */
+app.get('/api/chat/quota', async (req, res) => {
+  try {
+    const authUserId = String(req.headers['x-auth-user'] ?? '').trim()
+    if (authUserId) {
+      res.json(authenticatedQuota())
+      return
+    }
+
+    const guestIdRaw = String(
+      req.headers['x-guest-id'] ?? req.query.guestId ?? '',
+    ).trim()
+    if (!isValidGuestId(guestIdRaw)) {
+      res.status(400).json({
+        error: 'X-Guest-Id is required',
+        code: 'GUEST_ID_REQUIRED',
+        limit: GUEST_CHAT_LIMIT,
+        remaining: GUEST_CHAT_LIMIT,
+        used: 0,
+        mode: 'guest',
+      })
+      return
+    }
+
+    await ensureSchema()
+    const status = await getGuestQuota(guestIdRaw)
+    res.json(status)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[api/chat/quota]', message)
+    res.status(500).json({ error: message })
   }
 })
 

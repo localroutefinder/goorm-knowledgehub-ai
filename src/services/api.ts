@@ -11,6 +11,7 @@ import {
   listSessions,
   saveSessionMessages,
 } from '@/services/chatSessions'
+import { getOrCreateGuestId } from '@/services/guestId'
 import type {
   ChatGenerationPrefs,
   ChatMessage,
@@ -164,6 +165,7 @@ export async function sendChat(
   workspaceId?: string,
   sessionId?: string,
   generation?: Partial<ChatGenerationPrefs>,
+  authUserId?: string | null,
 ): Promise<ChatMessage[]> {
   const ws = workspaceId || 'ws-hr'
   const active = sessionId
@@ -183,9 +185,18 @@ export async function sendChat(
     createdAt: now,
   }
 
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  if (authUserId) {
+    headers['X-Auth-User'] = authUserId
+  } else {
+    headers['X-Guest-Id'] = getOrCreateGuestId()
+  }
+
   const res = await fetch('/api/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       question,
       model,
@@ -207,10 +218,21 @@ export async function sendChat(
     mode?: ChatMessage['mode']
     deliberation?: ChatMessage['deliberation']
     error?: string
+    code?: string
+    remaining?: number
+    limit?: number
   }
 
   if (!res.ok) {
-    throw new Error(data.error || `Chat API failed (${res.status})`)
+    const err = new Error(data.error || `Chat API failed (${res.status})`) as Error & {
+      code?: string
+      remaining?: number
+      status?: number
+    }
+    err.code = data.code
+    err.remaining = data.remaining
+    err.status = res.status
+    throw err
   }
 
   const assistantMsg: ChatMessage = {
@@ -229,6 +251,30 @@ export async function sendChat(
 
   const next = [...history, userMsg, assistantMsg]
   return saveSessionMessages(ws, sid, next).messages
+}
+
+export async function fetchChatQuota(authUserId?: string | null) {
+  const headers: Record<string, string> = {}
+  if (authUserId) {
+    headers['X-Auth-User'] = authUserId
+  } else {
+    headers['X-Guest-Id'] = getOrCreateGuestId()
+  }
+  const res = await fetch('/api/chat/quota', { headers })
+  if (!res.ok) {
+    return {
+      mode: 'guest' as const,
+      limit: 3,
+      used: 0,
+      remaining: 3 as number | null,
+    }
+  }
+  return (await res.json()) as {
+    mode: 'guest' | 'authenticated'
+    limit: number
+    used: number
+    remaining: number | null
+  }
 }
 
 export async function fetchModels() {

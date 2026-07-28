@@ -7,7 +7,11 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { getCurrentUser, loginWithGoogle, logout as authLogout } from '@/services/auth'
+import {
+  loginWithGoogle,
+  logout as authLogout,
+  subscribeAuth,
+} from '@/services/auth'
 import {
   DEFAULT_GENERATION_PREFS,
   type ChatGenerationPrefs,
@@ -22,7 +26,7 @@ interface AppState {
   selectedModel: LlmModel
   generationPrefs: ChatGenerationPrefs
   login: () => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   setWorkspaceId: (id: string) => void
   setModel: (model: LlmModel) => void
   setGenerationPrefs: (prefs: Partial<ChatGenerationPrefs>) => void
@@ -73,8 +77,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
 
   useEffect(() => {
-    setUser(getCurrentUser())
-    setLoading(false)
+    const unsubscribe = subscribeAuth((next) => {
+      setUser(next)
+      setLoading(false)
+    })
+    return unsubscribe
   }, [])
 
   const login = useCallback(async () => {
@@ -82,8 +89,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUser(u)
   }, [])
 
-  const logout = useCallback(() => {
-    authLogout()
+  const logout = useCallback(async () => {
+    await authLogout()
     setUser(null)
   }, [])
 

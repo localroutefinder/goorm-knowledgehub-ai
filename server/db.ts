@@ -82,4 +82,14 @@ export async function ensureSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS usage_logs_created_idx
       ON usage_logs (created_at DESC)
   `)
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS guest_chat_quota (
+      guest_id TEXT PRIMARY KEY,
+      chat_count INT NOT NULL DEFAULT 0,
+      last_ip TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
 }

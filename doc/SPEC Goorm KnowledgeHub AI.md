@@ -1,7 +1,8 @@
 # 조직 및 부서별 업무 지원을 위한 RAG & 멀티 LLM 지식비서
 
-## 기술명세서 (Version 1.3)
+## 기술명세서 (Version 1.4)
 
+> **Version 1.4 (2026-07-28)** — Firebase Authentication Google 로그인 (클라이언트), env 미설정 시 mock 폴백.  
 > **Version 1.3 (2026-07-28)** — 채팅 세션·목록·슬라이드 히스토리, 엔터프라이즈 Generation 옵션(Temperature / Max Tokens / System instructions), 웹 근거(Google Search·Perplexity citations), `GET /api/models` 반영.  
 > **Version 1.2 (2026-07-27)** — RAG 하이브리드 게이트, Auto 멀티 LLM 협의(Deliberation), 답변 웹뷰, 채팅 로컬 영속화, Neon pgvector RAG, 사용량 계측.
 
@@ -361,7 +362,7 @@ Chat UI (웹뷰/원문, sources/링크, routeReason, generation 메타)
 
 ---
 
-# 5-A. 현재 구현 현황 (Version 1.3)
+# 5-A. 현재 구현 현황 (Version 1.4)
 
 | 영역 | 상태 | 주요 경로 |
 | --- | --- | --- |
@@ -376,7 +377,10 @@ Chat UI (웹뷰/원문, sources/링크, routeReason, generation 메타)
 | Generation 옵션 | 구현 | `temperature` / `maxTokens` / `systemInstructions` |
 | 웹 근거·citations | 구현 | Perplexity·Gemini grounding·선택 CSE (`webSearch.ts`) |
 | API 모델 목록 | 구현 | `GET /api/models` |
-| Firebase Auth | 미완 (mock) | `src/services/auth` |
+| Firebase Auth (Google) | 구현 (클라이언트) | `src/services/firebase`, `src/services/auth` · env 미설정 시 mock |
+| 게스트 채팅 3회 | 구현 | `guest_chat_quota`, `/api/chat/quota`, `/chat` 공개 |
+| Firestore 유저 동기화 | 미구현 | 역할·프로필 서버 저장은 후속 |
+| 바우처 코드 | 미구현 (CTA만) | 한도 해제용 |
 | 가드레일/캐시 | 미구현 | — |
 | PDF 바이너리 파싱 | 부분 (텍스트 업로드 중심) | Documents upload |
 | 파일 첨부 / 이미지 생성 | 미구현 (이미지 제공자 OpenAI 예정) | — |
@@ -387,7 +391,8 @@ Chat UI (웹뷰/원문, sources/링크, routeReason, generation 메타)
 | --- | --- | --- |
 | GET | `/api/health` | DB·provider 키·Google CSE 상태 |
 | GET | `/api/models` | 선택 가능 모델·가용 여부·기본 generation 값 |
-| POST | `/api/chat` | RAG + LLM + generation 옵션 (Auto 시 deliberation) |
+| GET | `/api/chat/quota` | 게스트 남은 체험 횟수 |
+| POST | `/api/chat` | RAG + LLM + generation 옵션 (Auto 시 deliberation, 게스트 3회 한도) |
 | POST | `/api/search` | pgvector 검색 |
 | GET/POST | `/api/documents`, `/api/documents/upload` | 문서 목록·인덱싱 |
 | GET | `/api/usage/summary`, `/api/usage/analytics` | 사용량 |
@@ -817,7 +822,10 @@ createdAt
 
 ## 로그인
 
-* Google 로그인
+* Google 로그인 (Firebase Authentication · `signInWithPopup`)
+* `VITE_FIREBASE_*` 미설정 시 Demo mock 폴백
+* 세션 복원: `onAuthStateChanged`
+* Firestore `users/` 프로필 동기화는 후속
 
 ---
 
@@ -1007,3 +1015,5 @@ GET /api/workspaces
 | 1.1 | — | UI/기능 범위 정리 |
 | 1.2 | 2026-07-27 | RAG 하이브리드, Auto Deliberation, 웹뷰, 채팅 영속화, Neon RAG·usage 반영 |
 | 1.3 | 2026-07-28 | 채팅 세션·슬라이드 히스토리, Generation 옵션, 웹 근거/citations, `/api/models` |
+| 1.4 | 2026-07-28 | Firebase Auth Google 로그인 (클라이언트) · mock 폴백 |
+| 1.4.1 | 2026-07-28 | 게스트 `/chat` 3회 체험 (`guest_chat_quota`) |

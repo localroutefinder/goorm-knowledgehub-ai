@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { BrandLogo } from '@/components/ui/BrandLogo'
 import { Icon } from '@/components/ui/Icon'
 import { MonoLabel } from '@/components/ui/MonoLabel'
@@ -14,6 +14,8 @@ const navItems = [
   { to: '/analytics', label: 'Analytics', icon: 'insights' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
 ]
+
+const guestNavItems = [{ to: '/chat', label: 'Chat', icon: 'forum' }]
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `flex items-center gap-3 px-4 py-3 font-mono text-[12px] tracking-[0.05em] uppercase transition-all duration-100 active:scale-95 ${
@@ -33,7 +35,18 @@ export function AppShell({
   topLinks?: ReactNode
 }) {
   const { user, logout } = useAppStore()
+  const location = useLocation()
   const navigate = useNavigate()
+  const items = user ? navItems : guestNavItems
+  const loginTarget = `/login?from=${encodeURIComponent(location.pathname + location.search)}`
+
+  function handleAuthClick() {
+    if (user) {
+      void logout().then(() => navigate('/login'))
+      return
+    }
+    navigate(loginTarget)
+  }
 
   return (
     <div className="min-h-screen bg-background text-on-surface">
@@ -42,8 +55,8 @@ export function AppShell({
           <BrandLogo className="drop-shadow-[0_0_12px_rgba(108,56,255,0.35)]" />
         </div>
 
-        <nav className="flex-1 space-y-1 py-6">
-          {navItems.map((item) => (
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto py-6">
+          {items.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.to === '/'} className={navClass}>
               <Icon name={item.icon} />
               <span>{item.label}</span>
@@ -51,7 +64,7 @@ export function AppShell({
           ))}
         </nav>
 
-        <div className="space-y-1 border-t border-white/5 p-4">
+        <div className="shrink-0 space-y-1 border-t border-white/5 p-4">
           <button
             type="button"
             onClick={() => navigate('/chat?new=1')}
@@ -62,14 +75,11 @@ export function AppShell({
           </button>
           <button
             type="button"
-            onClick={() => {
-              logout()
-              navigate('/login')
-            }}
-            className="flex w-full items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-tertiary"
+            onClick={handleAuthClick}
+            className="flex w-full items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-secondary"
           >
-            <Icon name="logout" />
-            <MonoLabel>Sign out</MonoLabel>
+            <Icon name={user ? 'logout' : 'login'} />
+            <MonoLabel>{user ? 'Sign out' : 'Sign in'}</MonoLabel>
           </button>
         </div>
       </aside>
@@ -82,8 +92,16 @@ export function AppShell({
             </span>
             {topLinks}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <SearchField className="hidden w-56 md:flex" placeholder="Global search…" />
+            <button
+              type="button"
+              onClick={handleAuthClick}
+              className="flex items-center gap-2 rounded border border-outline-variant px-2.5 py-1.5 font-mono text-[11px] uppercase tracking-wide text-on-surface-variant hover:border-secondary hover:text-secondary"
+            >
+              <Icon name={user ? 'logout' : 'login'} className="text-base" />
+              <span className="hidden sm:inline">{user ? 'Sign out' : 'Sign in'}</span>
+            </button>
             <button type="button" className="text-on-surface-variant hover:text-primary">
               <Icon name="notifications" />
             </button>
@@ -94,7 +112,7 @@ export function AppShell({
                 ) : null}
               </div>
               <span className="hidden text-sm text-on-surface-variant sm:inline">
-                {user?.name}
+                {user?.name ?? 'Guest'}
               </span>
             </div>
           </div>
@@ -104,7 +122,7 @@ export function AppShell({
       </div>
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 flex border-t border-white/10 bg-deep-gunmetal lg:hidden">
-        {navItems.slice(0, 5).map((item) => (
+        {items.slice(0, 5).map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -119,6 +137,14 @@ export function AppShell({
             {item.label}
           </NavLink>
         ))}
+        <button
+          type="button"
+          onClick={handleAuthClick}
+          className="flex flex-1 flex-col items-center gap-1 py-2 text-[10px] text-on-surface-variant"
+        >
+          <Icon name={user ? 'logout' : 'login'} className="text-[20px]" />
+          {user ? 'Sign out' : 'Sign in'}
+        </button>
       </nav>
     </div>
   )
