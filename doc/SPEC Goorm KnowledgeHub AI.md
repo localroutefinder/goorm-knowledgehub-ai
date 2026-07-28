@@ -1,8 +1,9 @@
 # 조직 및 부서별 업무 지원을 위한 RAG & 멀티 LLM 지식비서
 
-## 기술명세서 (Version 1.2)
+## 기술명세서 (Version 1.3)
 
-> **Version 1.2 (2026-07-27)** — RAG 하이브리드 게이트, Auto 멀티 LLM 협의(Deliberation), 답변 웹뷰, 채팅 로컬 영속화, Neon pgvector RAG, 사용량 계측이 반영된 구현 기준 명세.
+> **Version 1.3 (2026-07-28)** — 채팅 세션·목록·슬라이드 히스토리, 엔터프라이즈 Generation 옵션(Temperature / Max Tokens / System instructions), 웹 근거(Google Search·Perplexity citations), `GET /api/models` 반영.  
+> **Version 1.2 (2026-07-27)** — RAG 하이브리드 게이트, Auto 멀티 LLM 협의(Deliberation), 답변 웹뷰, 채팅 로컬 영속화, Neon pgvector RAG, 사용량 계측.
 
 ---
 
@@ -140,13 +141,23 @@ Workspace마다
 
 ## ④ 멀티 LLM 선택
 
-사용자가 원하는 AI를 선택
+사용자가 원하는 AI를 선택하거나 API로 지정한다.
 
 * GPT
 * Claude
 * Gemini
 * Perplexity
 * Auto Mode
+
+API: `GET /api/models`, `POST /api/chat`의 `model` 필드.
+
+---
+
+## ④-B Generation · 근거 제어 (구현)
+
+* Temperature / Max Tokens로 답변 스타일·분량 조절
+* System instructions로 조직 톤·형식 지침 주입
+* Web grounding으로 검색/인용 URL을 Sources에 표시
 
 ---
 
@@ -253,14 +264,66 @@ Chat UI는 협의 transcript와 최종 답변을 분리 표시하며, 최종 답
 
 ---
 
-## ⑭ 채팅 기록 영속화 (구현)
+## ⑭ 채팅 세션·히스토리 (구현)
 
-탭 이동·새로고침 시 대화가 사라지지 않도록, 워크스페이스별 채팅 이력을 브라우저 `localStorage`에 저장한다.
+탭 이동·새로고침 시 대화가 유지되도록, **워크스페이스별 대화 세션**을 브라우저 `localStorage`에 저장한다.
 
-- 키: `kh_chat_history:{workspaceId}`
-- 최근 메시지 상한: 80개
-- 잘못된 shape는 로드 시 무시
-- 서버 DB 동기화는 후속 Phase로 확장 가능
+### 데이터 모델
+
+```ts
+interface ChatSession {
+  id: string
+  workspaceId: string
+  title: string          // 첫 질문 앞 40자 또는 '새 대화'
+  createdAt: string
+  updatedAt: string
+  messages: ChatMessage[]
+}
+```
+
+### Storage 키
+
+| 키 | 값 |
+| --- | --- |
+| `kh_chat_sessions:{workspaceId}` | `ChatSession[]` |
+| `kh_chat_active:{workspaceId}` | active session id |
+
+### 동작
+
+- New Chat → 빈 세션 생성 + active 설정 (`AppShell`은 `/chat?new=1`)
+- 세션 전환 / 삭제 / 목록(`updatedAt` 내림차순)
+- 세션 상한 30개, 세션당 메시지 80개
+- 구 키 `kh_chat_history:{ws}`가 있으면 **세션 1개로 마이그레이션** 후 구 키 삭제
+- UI: Chat 좌측 세션 패널 (`xl` 미만은 햄버거 슬라이드 오버레이)
+- 구현: `src/services/chatSessions.ts`, `src/pages/ChatPage.tsx`
+- 서버 DB 동기화는 후속 Phase
+
+---
+
+## ⑮ 엔터프라이즈 Generation 옵션 (구현)
+
+API·Chat·Settings에서 답변 스타일·분량·지침·웹 근거를 제어한다.
+
+| 옵션 | 설명 | 범위 |
+| --- | --- | --- |
+| `model` | `gpt` / `claude` / `gemini` / `perplexity` / `auto` | API·Chat 칩 |
+| `temperature` | 창의성/일관성 (0–2, 기본 0.3) | API·Chat·Settings |
+| `maxTokens` | 최대 생성 토큰 (64–8192, 기본 1024) | API·Chat·Settings |
+| `systemInstructions` | 추가 System 지침 (베이스 프롬프트에 병합) | API·Chat·Settings |
+| `includeWebSearch` | 웹 근거 선호 | API·Chat·Settings |
+
+클라이언트 기본값은 `localStorage` 키 `kh_generation_prefs`에 저장한다 (`AppStore`).
+
+### 답변 근거 (Sources / Citations)
+
+| 출처 | 내용 |
+| --- | --- |
+| Neon RAG | 문서 filename |
+| Perplexity Sonar | 응답 `citations` URL |
+| Gemini | Google Search grounding chunk URI (`includeWebSearch` 또는 `web` 모드) |
+| Google CSE (선택) | `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` 시 검색 스니펫·링크를 컨텍스트·sources에 주입 |
+
+Chat UI에서 `https://` 출처는 클릭 가능한 링크로 표시한다.
 
 ---
 
@@ -293,12 +356,12 @@ usage_logs 기록
 ↓
 최종 답변 + (AUTO 시) deliberation transcript
 ↓
-Chat UI (웹뷰/원문, sources, routeReason)
+Chat UI (웹뷰/원문, sources/링크, routeReason, generation 메타)
 ```
 
 ---
 
-# 5-A. 현재 구현 현황 (Version 1.2)
+# 5-A. 현재 구현 현황 (Version 1.3)
 
 | 영역 | 상태 | 주요 경로 |
 | --- | --- | --- |
@@ -309,20 +372,39 @@ Chat UI (웹뷰/원문, sources, routeReason)
 | RAG 하이브리드 게이트 | 구현 | `server/rag/search.ts`, `/api/chat` |
 | 사용량/Analytics | 구현 | `server/usage/*` |
 | 답변 웹뷰 | 구현 | `src/components/ui/AnswerView.tsx` |
-| 채팅 로컬 영속화 | 구현 | `src/services/api.ts` (`kh_chat_history:*`) |
+| 채팅 세션·히스토리 | 구현 | `src/services/chatSessions.ts`, `ChatPage` |
+| Generation 옵션 | 구현 | `temperature` / `maxTokens` / `systemInstructions` |
+| 웹 근거·citations | 구현 | Perplexity·Gemini grounding·선택 CSE (`webSearch.ts`) |
+| API 모델 목록 | 구현 | `GET /api/models` |
 | Firebase Auth | 미완 (mock) | `src/services/auth` |
 | 가드레일/캐시 | 미구현 | — |
 | PDF 바이너리 파싱 | 부분 (텍스트 업로드 중심) | Documents upload |
+| 파일 첨부 / 이미지 생성 | 미구현 (이미지 제공자 OpenAI 예정) | — |
 
 ### API (현재)
 
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/api/health` | DB·provider 키 상태 |
-| POST | `/api/chat` | RAG + LLM (Auto 시 deliberation 포함) |
+| GET | `/api/health` | DB·provider 키·Google CSE 상태 |
+| GET | `/api/models` | 선택 가능 모델·가용 여부·기본 generation 값 |
+| POST | `/api/chat` | RAG + LLM + generation 옵션 (Auto 시 deliberation) |
 | POST | `/api/search` | pgvector 검색 |
 | GET/POST | `/api/documents`, `/api/documents/upload` | 문서 목록·인덱싱 |
 | GET | `/api/usage/summary`, `/api/usage/analytics` | 사용량 |
+
+#### `POST /api/chat` body (구현)
+
+```json
+{
+  "question": "string",
+  "model": "gpt|claude|gemini|perplexity|auto",
+  "workspaceId": "ws-hr",
+  "temperature": 0.3,
+  "maxTokens": 1024,
+  "systemInstructions": "optional",
+  "includeWebSearch": false
+}
+```
 
 ---
 
@@ -762,26 +844,35 @@ createdAt
 
 좌측
 
-* Workspace
-* 문서
-
-우측
-
-* 채팅
+* 세션 목록 (New Chat / 전환 / 삭제)
+* `xl` 미만: 햄버거 슬라이드 패널
 
 상단
 
-* GPT
-* Claude
-* Gemini
-* Perplexity
-* Auto
+* GPT / Claude / Gemini / Perplexity / Auto
+* Enterprise 패널: Temperature · Max Tokens · Web grounding · System instructions
+
+본문
+
+* 메시지 스레드 (세션별)
+* AUTO 시 협의 과정 패널
+* 답변 웹뷰 / 원문
+* Sources (문서명 또는 웹 URL 링크)
 
 하단
 
-* 응답 출처
-* 라우팅 사유
-* 지연 시간
+* Prompt 예시 뱃지
+* 입력창
+* 라우팅 사유 · 지연 시간 · mode
+
+---
+
+## Settings
+
+* API Models (`GET /api/models`)
+* Generation Defaults (Temp / Max Tokens / System / Web)
+* Fallback 우선순위 UI
+* API 키 안내 (실제 키는 서버 `.env`)
 
 ---
 
@@ -827,6 +918,14 @@ POST /api/search
 
 ```text
 POST /api/chat
+Body: question, model, workspaceId?,
+      temperature?, maxTokens?, systemInstructions?, includeWebSearch?
+```
+
+### 모델 목록
+
+```text
+GET /api/models
 ```
 
 ---
@@ -907,3 +1006,4 @@ GET /api/workspaces
 | 1.0 | — | 초기 제품·아키텍처 명세 |
 | 1.1 | — | UI/기능 범위 정리 |
 | 1.2 | 2026-07-27 | RAG 하이브리드, Auto Deliberation, 웹뷰, 채팅 영속화, Neon RAG·usage 반영 |
+| 1.3 | 2026-07-28 | 채팅 세션·슬라이드 히스토리, Generation 옵션, 웹 근거/citations, `/api/models` |

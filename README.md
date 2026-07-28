@@ -6,7 +6,7 @@
 
 ![Dashboard](docs/assets/dashboard.png)
 
-기술명세: [`doc/SPEC Goorm KnowledgeHub AI.md`](doc/SPEC%20Goorm%20KnowledgeHub%20AI.md) (Version **1.2**)
+기술명세: [`doc/SPEC Goorm KnowledgeHub AI.md`](doc/SPEC%20Goorm%20KnowledgeHub%20AI.md) (Version **1.3**)
 
 ---
 
@@ -15,13 +15,16 @@
 | 기능 | 설명 |
 | --- | --- |
 | **Neon RAG** | pgvector 검색 → 관련 문서 근거로 답변, Sources 표시 |
-| **RAG 하이브리드** | 유사도 게이트로 `docs` / `hybrid` / `web` 분기 (무관 질문의 “문서에 없다” 거절 완화) |
+| **RAG 하이브리드** | 유사도 게이트로 `docs` / `hybrid` / `web` 분기 |
 | **수동 LLM** | GPT / Claude / Gemini / Perplexity 단일 호출 + Fallback |
-| **AUTO Deliberate** | 멀티 LLM 병렬 초안 → Chair 합의 → 최종 답변, 협의 과정 UI |
-| **답변 웹뷰** | 마크다운을 HTML 웹뷰로 렌더 (원문 전환 가능) |
-| **채팅 기록 유지** | 워크스페이스별 `localStorage` 영속화 (탭 이동·새로고침 유지) |
+| **AUTO Deliberate** | 멀티 LLM 병렬 초안 → Chair 합의 → 최종 답변 |
+| **답변 웹뷰** | 마크다운 → HTML 웹뷰 (원문 전환) |
+| **채팅 세션** | 워크스페이스별 세션 생성/전환/삭제, 좌측 목록·모바일 슬라이드 |
+| **Generation 옵션** | Temperature · Max Tokens · System instructions · Web grounding |
+| **웹 근거** | Perplexity citations · Gemini Google Search · 선택 Google CSE |
+| **API 모델 선택** | `GET /api/models`, `POST /api/chat`의 `model` |
 | **사용량** | Neon `usage_logs` → Dashboard / Analytics |
-| **UI** | Metallic Pop Art 디자인, Stitch 브랜드 로고 |
+| **UI** | Metallic Pop Art, Stitch 브랜드 로고 |
 
 ---
 
@@ -60,13 +63,40 @@ npm run dev
 | --- | --- |
 | `OPENAI_API_KEY` | GPT + 임베딩 |
 | `ANTHROPIC_API_KEY` | Claude |
-| `GOOGLE_API_KEY` | Gemini |
-| `PERPLEXITY_API_KEY` | 웹 검색 (없으면 web 보강 제한) |
+| `GOOGLE_API_KEY` | Gemini (+ 선택 CSE) |
+| `PERPLEXITY_API_KEY` | 웹 검색·인용 |
+| `GOOGLE_CSE_ID` | (선택) Google Custom Search 근거 링크 |
 | `DATABASE_URL` | Neon 연결 문자열 |
 | `API_PORT` | API 포트 (기본 `8787`) |
 | `VITE_FIREBASE_*` | Firebase (미설정 시 mock 로그인) |
 
 상세 템플릿: [`.env.example`](.env.example)
+
+---
+
+## API 요약
+
+| Method | Path | 설명 |
+| --- | --- | --- |
+| `GET` | `/api/health` | DB·provider·CSE 상태 |
+| `GET` | `/api/models` | 선택 가능 모델·가용 여부 |
+| `POST` | `/api/chat` | RAG + LLM + generation 옵션 |
+| `GET/POST` | `/api/documents` · `/upload` | 문서 목록·인덱싱 |
+| `GET` | `/api/usage/summary` · `/analytics` | 사용량 |
+
+### `POST /api/chat` 예시
+
+```json
+{
+  "question": "신입 연차는?",
+  "model": "auto",
+  "workspaceId": "ws-hr",
+  "temperature": 0.3,
+  "maxTokens": 1024,
+  "systemInstructions": "불릿으로 답하고 근거를 명시하세요.",
+  "includeWebSearch": false
+}
+```
 
 ---
 
@@ -95,14 +125,19 @@ npm run dev
 
 ---
 
-## 채팅 기록
+## 채팅 세션
 
-- 저장 위치: 브라우저 `localStorage`
-- 키: `kh_chat_history:{workspaceId}`
-- 상한: 최근 80메시지
-- 다른 페이지 이동·새로고침 후에도 `/chat`에서 복원
+| 항목 | 내용 |
+| --- | --- |
+| 저장 | 브라우저 `localStorage` |
+| 세션 목록 | `kh_chat_sessions:{workspaceId}` (최대 30) |
+| Active | `kh_chat_active:{workspaceId}` |
+| 메시지 상한 | 세션당 80 |
+| New Chat | AppShell → `/chat?new=1` |
+| 마이그레이션 | 구 `kh_chat_history:{ws}` → 세션 1개 |
+| UI | 좌측 패널 / 모바일 슬라이드 |
 
-기기 간 동기화가 필요하면 이후 Neon `chat_history` API로 확장하면 됩니다.
+Generation 기본값: `kh_generation_prefs` (Temperature · Max Tokens · System · Web)
 
 ---
 
@@ -126,9 +161,9 @@ npm run dev
 | `/workspaces` | Workspaces |
 | `/workspaces/:id` | Knowledge Base |
 | `/documents` | Documents (업로드·인덱싱) |
-| `/chat` | Multi-LLM Chat |
+| `/chat` | Multi-LLM Chat (세션·Generation) |
 | `/analytics` | Analytics / System Pulse |
-| `/settings` | Fallback·설정 UI |
+| `/settings` | Models · Generation · Fallback |
 
 디자인 참고: `UI/` · 로고: `public/brand/goorm-knowledgehub-logo.png`
 
@@ -137,12 +172,13 @@ npm run dev
 ## 디렉터리 (요약)
 
 ```text
-src/           React 앱 (pages, components, services)
+src/           React 앱 (pages, components, services, store)
+  services/    api, chatSessions, auth
 server/        Express API
-  llm/         providers, router, orchestrator, deliberate, fallback
+  llm/         providers, deliberate, fallback, webSearch, …
   rag/         chunk, embed, search, seed, index
   usage/       usage_logs, analytics
-doc/           기술명세 SPEC
+doc/           기술명세 SPEC (v1.3)
 ```
 
 ---
@@ -153,6 +189,7 @@ doc/           기술명세 SPEC
 - 가드레일·의미 캐시
 - PDF 바이너리 파싱 고도화
 - 채팅 서버 동기화
+- 파일 첨부 · 이미지 생성/분석 (OpenAI)
 - MCP·메신저·ERP 연동 (SPEC Phase 3)
 
 ---
