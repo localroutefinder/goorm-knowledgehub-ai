@@ -6,7 +6,7 @@ const LEGACY_KEY_PREFIX = 'kh_chat_history:'
 const SESSION_LIMIT = 30
 const MESSAGE_LIMIT = 80
 
-const VALID_MODELS = new Set(['gpt', 'claude', 'gemini', 'perplexity', 'auto'])
+const VALID_MODELS = new Set(['gpt', 'claude', 'gemini', 'perplexity', 'local', 'auto'])
 const VALID_ROLES = new Set(['user', 'assistant'])
 
 function sessionsKey(workspaceId: string) {

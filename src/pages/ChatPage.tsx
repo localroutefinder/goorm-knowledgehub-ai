@@ -17,6 +17,7 @@ import {
 import { GUEST_CHAT_LIMIT, GUEST_WORKSPACE_ID } from '@/services/guestId'
 import { useAppStore } from '@/store/AppStore'
 import type { ChatSession, DeliberationStep, LlmModel } from '@/types'
+import { SYSTEM_INSTRUCTION_PRESETS } from '@/types'
 
 const models: { id: LlmModel; label: string; sub: string; color: string }[] = [
   { id: 'gpt', label: 'OPENAI', sub: 'GPT', color: 'text-gpt border-gpt' },
@@ -27,6 +28,12 @@ const models: { id: LlmModel; label: string; sub: string; color: string }[] = [
     label: 'PERPLEXITY',
     sub: 'Web Search',
     color: 'text-perplexity border-perplexity',
+  },
+  {
+    id: 'local',
+    label: 'LOCAL',
+    sub: 'Qwen / LM Studio',
+    color: 'text-local border-local',
   },
   {
     id: 'auto',
@@ -41,9 +48,18 @@ const modelBadge: Record<string, string> = {
   claude: 'border-claude text-claude',
   gemini: 'border-gemini text-gemini',
   perplexity: 'border-perplexity text-perplexity',
+  local: 'border-local text-local',
 }
 
 const promptExamples: { title: string; prompt: string }[] = [
+  {
+    title: 'RAG · 신입 연차',
+    prompt: '신입사원도 연차를 바로 쓸 수 있나요? 근거 문서를 함께 알려주세요.',
+  },
+  {
+    title: 'RAG · 입사 서류',
+    prompt: '입사 후 제출해야 하는 서류와 기한을 정리해 주세요.',
+  },
   {
     title: '모델의 자기인식',
     prompt:
@@ -63,11 +79,6 @@ const promptExamples: { title: string; prompt: string }[] = [
     title: '다양한 요구반영',
     prompt:
       "AI 입문자를 대상으로 'RAG와 AI 에이전트의 차이'를 이해하기 쉽게 설명해 주세요. 실생활 비유, 단계별 그림 설명, 발표 슬라이드 구성, 실습 아이디어까지 포함해 주세요.",
-  },
-  {
-    title: '최신성 정보참조',
-    prompt:
-      '2026년 기준 가장 많이 활용되는 RAG 프레임워크와 AI 에이전트 프레임워크를 조사하여 기능, 장단점, 사용 사례를 비교하고 신뢰할 수 있는 출처를 함께 제시해 주세요.',
   },
 ]
 
@@ -278,6 +289,10 @@ export function ChatPage() {
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
 
+  useEffect(() => {
+    if (selectedModel === 'local') setAdvancedOpen(true)
+  }, [selectedModel])
+
   const { data: quota, refetch: refetchQuota } = useQuery({
     queryKey: ['chat-quota', user?.id ?? 'guest'],
     queryFn: () => fetchChatQuota(user?.id),
@@ -463,9 +478,11 @@ export function ChatPage() {
                     title={
                       m.id === 'perplexity'
                         ? '웹 검색 모드 (Perplexity Sonar) — 조직 문서는 보조'
-                        : m.id === 'auto'
-                          ? '멀티 LLM 초안 후 합의 최종안'
-                          : undefined
+                        : m.id === 'local'
+                          ? 'LM Studio 로컬 모델 (클라우드 미전송) — Cursor 병행 시 경량 설정 권장'
+                          : m.id === 'auto'
+                            ? '멀티 LLM 초안 후 합의 최종안'
+                            : undefined
                     }
                     onClick={() => setModel(m.id)}
                     className={`min-w-[100px] flex-1 rounded px-4 py-3 milled-edge transition ${
@@ -498,8 +515,9 @@ export function ChatPage() {
                 className="flex w-full items-center justify-between px-3 py-2 text-left"
               >
                 <MonoLabel className="text-outline">
-                  Enterprise · Temp {generationPrefs.temperature.toFixed(1)} · Max{' '}
+                  Generation · Temp {generationPrefs.temperature.toFixed(1)} · Max{' '}
                   {generationPrefs.maxTokens}
+                  {generationPrefs.preferDocuments ? ' · Docs' : ''}
                   {generationPrefs.includeWebSearch ? ' · Web' : ''}
                   {generationPrefs.systemInstructions.trim() ? ' · Sys' : ''}
                 </MonoLabel>
@@ -546,6 +564,37 @@ export function ChatPage() {
                   </div>
                   <label className="flex cursor-pointer items-center justify-between gap-3 rounded border border-white/5 px-3 py-2">
                     <div>
+                      <p className="text-sm font-medium">문서 근거 우선 (RAG)</p>
+                      <p className="text-[11px] text-outline">
+                        Neon 검색 결과를 답변에 주입 · Local/멀티 공통
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={generationPrefs.preferDocuments}
+                      onClick={() =>
+                        setGenerationPrefs({
+                          preferDocuments: !generationPrefs.preferDocuments,
+                        })
+                      }
+                      className={`relative h-7 w-12 rounded-sm border transition ${
+                        generationPrefs.preferDocuments
+                          ? 'border-local bg-local/20'
+                          : 'border-outline-variant bg-surface-container-lowest'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 h-5 w-5 rounded-sm bg-brushed-silver transition ${
+                          generationPrefs.preferDocuments
+                            ? 'left-6 bg-local'
+                            : 'left-0.5'
+                        }`}
+                      />
+                    </button>
+                  </label>
+                  <label className="flex cursor-pointer items-center justify-between gap-3 rounded border border-white/5 px-3 py-2">
+                    <div>
                       <p className="text-sm font-medium">Web grounding</p>
                       <p className="text-[11px] text-outline">
                         Google Search / Perplexity 인용 · 웹 링크 근거
@@ -575,8 +624,31 @@ export function ChatPage() {
                       />
                     </button>
                   </label>
-                  <label className="block space-y-1">
+                  <div className="block space-y-2">
                     <MonoLabel className="text-outline">System instructions</MonoLabel>
+                    <div className="flex flex-wrap gap-2">
+                      {SYSTEM_INSTRUCTION_PRESETS.map((preset) => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() =>
+                            setGenerationPrefs({ systemInstructions: preset.text })
+                          }
+                          className="rounded border border-white/15 px-2 py-1 font-mono text-[10px] uppercase text-outline transition hover:border-local hover:text-local"
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                      {generationPrefs.systemInstructions.trim() ? (
+                        <button
+                          type="button"
+                          onClick={() => setGenerationPrefs({ systemInstructions: '' })}
+                          className="rounded border border-error/30 px-2 py-1 font-mono text-[10px] uppercase text-error/80"
+                        >
+                          Clear
+                        </button>
+                      ) : null}
+                    </div>
                     <textarea
                       rows={3}
                       value={generationPrefs.systemInstructions}
@@ -586,7 +658,7 @@ export function ChatPage() {
                       placeholder="예: 답변은 불릿으로, 규정 인용 시 조항을 명시하세요."
                       className="w-full resize-y rounded border border-outline-variant bg-surface px-3 py-2 text-sm outline-none placeholder:text-outline focus:border-secondary"
                     />
-                  </label>
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -622,14 +694,16 @@ export function ChatPage() {
           <div className="flex-1 space-y-6 overflow-y-auto bg-deep-gunmetal/20 p-4 halftone-dot md:p-8">
             {messages.length === 0 && !mutation.isPending ? (
               <div className="rounded border border-white/10 bg-surface-container-low p-6 text-sm text-on-surface-variant">
-                Neon RAG가 연결되었습니다. AUTO는 멀티 LLM 협의 후 최종 답변을 만듭니다.
+                Neon RAG + System instructions가 연결되었습니다. Local은 LM Studio Qwen,
+                AUTO는 멀티 LLM 협의 후 최종 답변을 만듭니다.
                 <br />
                 <span className="font-mono text-[11px] text-outline">
-                  Workspace: {chatWorkspaceId} · 예: “신입 연차?”
+                  Workspace: {chatWorkspaceId} · RAG 예: “신입 연차?” · Documents에서 문서
+                  업로드 가능
                 </span>
                 <br />
                 <span className="mt-2 inline-block font-mono text-[11px] text-outline">
-                  아래 Prompt 뱃지로 모델 특성 차이를 테스트할 수 있습니다.
+                  Generation 패널에서 System instructions 프리셋 · 문서 근거 우선을 켜세요.
                 </span>
               </div>
             ) : null}

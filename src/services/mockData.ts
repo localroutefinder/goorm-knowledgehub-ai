@@ -267,6 +267,13 @@ export const mockModelHealth: ModelHealth[] = [
   { model: 'claude', label: 'Claude', status: 'operational', latencyMs: 510 },
   { model: 'gemini', label: 'Gemini', status: 'degraded', latencyMs: 2100 },
   { model: 'perplexity', label: 'Perplexity', status: 'operational', latencyMs: 680 },
+  { model: 'local', label: 'Local (LM Studio)', status: 'operational', latencyMs: 900 },
 ]
 
-export const defaultFallbackOrder = ['gpt', 'claude', 'gemini', 'perplexity'] as const
+export const defaultFallbackOrder = [
+  'gpt',
+  'claude',
+  'gemini',
+  'perplexity',
+  'local',
+] as const

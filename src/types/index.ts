@@ -41,7 +41,7 @@ export interface DocumentItem {
   sizeLabel: string
 }
 
-export type LlmModel = 'gpt' | 'claude' | 'gemini' | 'perplexity' | 'auto'
+export type LlmModel = 'gpt' | 'claude' | 'gemini' | 'perplexity' | 'local' | 'auto'
 
 export type PromptMode = 'docs' | 'hybrid' | 'web'
 
@@ -50,6 +50,7 @@ export interface ChatGenerationPrefs {
   maxTokens: number
   systemInstructions: string
   includeWebSearch: boolean
+  preferDocuments: boolean
 }
 
 export const DEFAULT_GENERATION_PREFS: ChatGenerationPrefs = {
@@ -57,7 +58,31 @@ export const DEFAULT_GENERATION_PREFS: ChatGenerationPrefs = {
   maxTokens: 1024,
   systemInstructions: '',
   includeWebSearch: false,
+  preferDocuments: true,
 }
+
+/** Quick system-instruction presets for Chat / Settings */
+export const SYSTEM_INSTRUCTION_PRESETS: {
+  id: string
+  label: string
+  text: string
+}[] = [
+  {
+    id: 'hr-docs',
+    label: 'HR 문서 근거',
+    text: '당신은 조직 HR 지식비서입니다. 제공된 문서 컨텍스트를 우선 근거로 한국어로 답하세요. 조항·조건이 있으면 명시하고, 문서에 없으면 추측하지 말고 확인할 수 없다고 말하세요.',
+  },
+  {
+    id: 'local-brief',
+    label: 'Local 간결',
+    text: '한국어로 짧고 정확하게 답하세요. 서론·사과·이모지 없이 결론과 근거만 제시하세요. 코딩 질문이면 동작하는 최소 코드부터 주세요.',
+  },
+  {
+    id: 'bullet',
+    label: '불릿 요약',
+    text: '답변은 불릿 위주로 작성하세요. 핵심만 3~7개로 정리하고, 근거 문서명이 있으면 끝에 표기하세요.',
+  },
+]
 
 export type DeliberationRole = 'draft' | 'chair'
 

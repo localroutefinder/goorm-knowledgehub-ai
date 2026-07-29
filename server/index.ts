@@ -56,6 +56,7 @@ app.get('/api/health', async (_req, res) => {
       claude: Boolean(process.env.ANTHROPIC_API_KEY?.trim()),
       gemini: Boolean(process.env.GOOGLE_API_KEY?.trim()),
       perplexity: Boolean(process.env.PERPLEXITY_API_KEY?.trim()),
+      local: Boolean(process.env.LMSTUDIO_BASE_URL?.trim()),
     },
     googleSearch: isGoogleSearchConfigured(),
   })
@@ -107,6 +108,13 @@ app.get('/api/models', (_req, res) => {
       available: hasProviderKey('perplexity'),
       description: 'Perplexity Sonar (웹 검색 인용)',
     },
+    {
+      id: 'local',
+      label: 'Local',
+      provider: 'lmstudio',
+      available: hasProviderKey('local'),
+      description: 'LM Studio OpenAI-compatible (Qwen 등)',
+    },
   ]
   res.json({
     models,
@@ -114,6 +122,7 @@ app.get('/api/models', (_req, res) => {
       temperature: 0.3,
       maxTokens: 1024,
       includeWebSearch: false,
+      preferDocuments: true,
     },
     googleSearch: isGoogleSearchConfigured(),
   })
@@ -256,6 +265,9 @@ app.post('/api/chat', async (req, res) => {
       includeWebSearch:
         req.body?.includeWebSearch === true ||
         req.body?.includeWebSearch === 'true',
+      preferDocuments:
+        req.body?.preferDocuments === true ||
+        req.body?.preferDocuments === 'true',
     })
 
     if (!question) {
@@ -263,7 +275,7 @@ app.post('/api/chat', async (req, res) => {
       return
     }
 
-    const allowed = new Set(['gpt', 'claude', 'gemini', 'perplexity', 'auto'])
+    const allowed = new Set(['gpt', 'claude', 'gemini', 'perplexity', 'local', 'auto'])
     if (!allowed.has(model)) {
       res.status(400).json({ error: 'invalid model' })
       return
@@ -314,21 +326,34 @@ app.post('/api/chat', async (req, res) => {
       await ensureSchema()
       const hits = await searchDocuments(question, { workspaceId, topK: 5 })
       const score = topScore(hits)
-      ragWeak = !isRelevant(hits)
+      // Local + 문서 우선 모드에서는 게이트를 완화해 근거 주입 확률을 높임
+      const ragThreshold =
+        model === 'local' || generation.preferDocuments ? 0.28 : undefined
+      ragWeak = !isRelevant(hits, ragThreshold)
 
       if (model === 'perplexity') {
         mode = 'web'
         // Perplexity: RAG는 보조만 — 관련 hit만 참고로 전달
-        const relevant = filterRelevantHits(hits)
+        const relevant = filterRelevantHits(hits, ragThreshold)
         const built = buildRagContext(relevant.length > 0 ? relevant : [])
         sources = built.sources
         ragContext = built.context
       } else if (!ragWeak) {
         mode = 'docs'
-        const relevant = filterRelevantHits(hits)
+        const relevant = filterRelevantHits(hits, ragThreshold)
         const built = buildRagContext(relevant)
         sources = built.sources
         ragContext = built.context
+      } else if (generation.preferDocuments && hits.length > 0) {
+        // 점수 미달이어도 상위 청크를 참고로 주입 (강제 문서 근거)
+        mode = 'hybrid'
+        const soft = hits.slice(0, 3)
+        const built = buildRagContext(soft)
+        sources = built.sources
+        ragContext = built.context
+        console.log(
+          `[api/chat] preferDocuments soft-inject (topScore=${score.toFixed(3)})`,
+        )
       } else {
         mode = 'hybrid'
         // 약한 매칭은 컨텍스트 주입 안 함 → 문서 거절 방지
@@ -348,7 +373,7 @@ app.post('/api/chat', async (req, res) => {
       generation.includeWebSearch ||
       model === 'perplexity' ||
       mode === 'web' ||
-      (mode === 'hybrid' && ragWeak)
+      (mode === 'hybrid' && ragWeak && !generation.preferDocuments)
 
     if (wantWeb && isGoogleSearchConfigured()) {
       try {

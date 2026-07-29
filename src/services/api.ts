@@ -205,6 +205,7 @@ export async function sendChat(
       maxTokens: generation?.maxTokens,
       systemInstructions: generation?.systemInstructions || undefined,
       includeWebSearch: generation?.includeWebSearch ?? false,
+      preferDocuments: generation?.preferDocuments ?? true,
     }),
   })
 
@@ -325,7 +326,7 @@ export async function fetchAnalytics(workspaceId?: string) {
 export async function fetchSettings() {
   await delay()
   return {
-    fallbackOrder: ['gpt', 'claude', 'gemini', 'perplexity'] as LlmModel[],
+    fallbackOrder: ['gpt', 'claude', 'gemini', 'perplexity', 'local'] as LlmModel[],
     autoMode: true,
     latencyOpt: true,
     contextCompression: false,

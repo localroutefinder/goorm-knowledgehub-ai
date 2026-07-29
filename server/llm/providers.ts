@@ -230,6 +230,54 @@ export async function callPerplexity(
   return { answer, citations: citations.length ? citations : undefined }
 }
 
+export async function callLocal(
+  question: string,
+  ragContext?: string,
+  mode: PromptMode = 'docs',
+  gen?: GenerationOptions,
+): Promise<ProviderCallResult> {
+  const baseUrl = process.env.LMSTUDIO_BASE_URL?.trim().replace(/\/$/, '')
+  if (!baseUrl) throw new Error('LMSTUDIO_BASE_URL is missing')
+  const model =
+    process.env.LMSTUDIO_MODEL?.trim() || 'qwen2.5-coder-3b-instruct'
+  const apiKey = process.env.LMSTUDIO_API_KEY?.trim() || 'lm-studio'
+  const opts = genDefaults(gen)
+
+  let res: Response
+  try {
+    res = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content: buildSystemPrompt(ragContext, mode, opts.systemInstructions),
+          },
+          { role: 'user', content: question },
+        ],
+        temperature: opts.temperature,
+        max_tokens: opts.maxTokens,
+      }),
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    throw new Error(`LM Studio unreachable: ${message}`)
+  }
+
+  if (!res.ok) throw new Error(`LM Studio: ${await readError(res)}`)
+  const data = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>
+  }
+  const answer = data.choices?.[0]?.message?.content?.trim()
+  if (!answer) throw new Error('LM Studio returned empty response')
+  return { answer }
+}
+
 export async function callProvider(
   model: ProviderModel,
   question: string,
@@ -251,5 +299,7 @@ export async function callProvider(
         mode === 'docs' ? 'web' : mode,
         gen,
       )
+    case 'local':
+      return callLocal(question, ragContext, mode, gen)
   }
 }

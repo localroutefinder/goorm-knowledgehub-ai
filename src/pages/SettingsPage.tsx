@@ -8,12 +8,14 @@ import { Button } from '@/components/ui/Button'
 import { fetchModels, fetchSettings } from '@/services/api'
 import { useAppStore } from '@/store/AppStore'
 import type { LlmModel } from '@/types'
+import { SYSTEM_INSTRUCTION_PRESETS } from '@/types'
 
 const labels: Record<string, string> = {
   gpt: 'OpenAI GPT',
   claude: 'Claude',
   gemini: 'Gemini',
   perplexity: 'Perplexity',
+  local: 'Local (LM Studio)',
 }
 
 export function SettingsPage() {
@@ -27,7 +29,13 @@ export function SettingsPage() {
     queryFn: fetchModels,
   })
 
-  const [order, setOrder] = useState<LlmModel[]>(['gpt', 'claude', 'gemini', 'perplexity'])
+  const [order, setOrder] = useState<LlmModel[]>([
+    'gpt',
+    'claude',
+    'gemini',
+    'perplexity',
+    'local',
+  ])
   const [autoMode, setAutoMode] = useState(true)
   const [latencyOpt, setLatencyOpt] = useState(true)
   const [compression, setCompression] = useState(false)
@@ -148,6 +156,35 @@ export function SettingsPage() {
           </div>
           <label className="flex cursor-pointer items-center justify-between gap-3 rounded border border-white/5 p-3">
             <div>
+              <p className="font-medium">문서 근거 우선 (RAG)</p>
+              <p className="text-xs text-on-surface-variant">
+                Neon 검색 청크를 답변에 주입 · Local/클라우드 공통
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={generationPrefs.preferDocuments}
+              onClick={() =>
+                setGenerationPrefs({
+                  preferDocuments: !generationPrefs.preferDocuments,
+                })
+              }
+              className={`relative h-7 w-12 rounded-sm border transition ${
+                generationPrefs.preferDocuments
+                  ? 'border-local bg-local/20'
+                  : 'border-outline-variant bg-surface-container-lowest'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 h-5 w-5 rounded-sm bg-brushed-silver transition ${
+                  generationPrefs.preferDocuments ? 'left-6 bg-local' : 'left-0.5'
+                }`}
+              />
+            </button>
+          </label>
+          <label className="flex cursor-pointer items-center justify-between gap-3 rounded border border-white/5 p-3">
+            <div>
               <p className="font-medium">Include web grounding</p>
               <p className="text-xs text-on-surface-variant">
                 Gemini Google Search · Perplexity citations · optional Google CSE
@@ -177,8 +214,29 @@ export function SettingsPage() {
               />
             </button>
           </label>
-          <label className="block space-y-1">
+          <div className="block space-y-2">
             <MonoLabel className="text-outline">System instructions</MonoLabel>
+            <div className="flex flex-wrap gap-2">
+              {SYSTEM_INSTRUCTION_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => setGenerationPrefs({ systemInstructions: preset.text })}
+                  className="rounded border border-white/15 px-2 py-1 font-mono text-[10px] uppercase text-outline transition hover:border-local hover:text-local"
+                >
+                  {preset.label}
+                </button>
+              ))}
+              {generationPrefs.systemInstructions.trim() ? (
+                <button
+                  type="button"
+                  onClick={() => setGenerationPrefs({ systemInstructions: '' })}
+                  className="rounded border border-error/30 px-2 py-1 font-mono text-[10px] uppercase text-error/80"
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
             <textarea
               rows={4}
               value={generationPrefs.systemInstructions}
@@ -188,7 +246,7 @@ export function SettingsPage() {
               placeholder="조직 톤·형식·금지 사항 등"
               className="w-full resize-y rounded border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-secondary"
             />
-          </label>
+          </div>
         </MetallicCard>
 
         <MetallicCard className="overflow-hidden p-0">

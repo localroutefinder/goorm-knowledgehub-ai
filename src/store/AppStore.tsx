@@ -57,6 +57,10 @@ function loadGenerationPrefs(): ChatGenerationPrefs {
           ? parsed.systemInstructions
           : '',
       includeWebSearch: Boolean(parsed.includeWebSearch),
+      preferDocuments:
+        typeof parsed.preferDocuments === 'boolean'
+          ? parsed.preferDocuments
+          : DEFAULT_GENERATION_PREFS.preferDocuments,
     }
   } catch {
     return { ...DEFAULT_GENERATION_PREFS }

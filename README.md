@@ -16,11 +16,11 @@
 | --- | --- |
 | **Neon RAG** | pgvector 검색 → 관련 문서 근거로 답변, Sources 표시 |
 | **RAG 하이브리드** | 유사도 게이트로 `docs` / `hybrid` / `web` 분기 |
-| **수동 LLM** | GPT / Claude / Gemini / Perplexity 단일 호출 + Fallback |
+| **수동 LLM** | GPT / Claude / Gemini / Perplexity / Local(LM Studio) 단일 호출 + Fallback |
 | **AUTO Deliberate** | 멀티 LLM 병렬 초안 → Chair 합의 → 최종 답변 |
 | **답변 웹뷰** | 마크다운 → HTML 웹뷰 (원문 전환) |
 | **채팅 세션** | 워크스페이스별 세션 생성/전환/삭제, 좌측 목록·모바일 슬라이드 |
-| **Generation 옵션** | Temperature · Max Tokens · System instructions · Web grounding |
+| **Generation 옵션** | Temperature · Max Tokens · System instructions · 문서 근거(RAG) · Web grounding |
 | **웹 근거** | Perplexity citations · Gemini Google Search · 선택 Google CSE |
 | **API 모델 선택** | `GET /api/models`, `POST /api/chat`의 `model` |
 | **Google 로그인** | Firebase Auth (`VITE_FIREBASE_*` 미설정 시 mock 폴백) |
@@ -36,7 +36,7 @@
 - **API:** Express (`server/`), `tsx watch`
 - **Auth:** Firebase Authentication (Google) · env 미설정 시 mock
 - **DB:** Neon PostgreSQL + pgvector
-- **LLM:** OpenAI / Anthropic / Google / Perplexity (서버 `.env`만 사용)
+- **LLM:** OpenAI / Anthropic / Google / Perplexity / LM Studio local (서버 `.env`만 사용)
 
 ---
 
@@ -53,6 +53,8 @@ npm run dev
 | --- | --- |
 | Web | http://localhost:5173 |
 | API | http://localhost:8787 |
+
+Local LLM: LM Studio에서 모델 Load 후 **Local Server**를 켠 뒤 Chat에서 `Local`을 선택합니다. 클라우드 호출이 모두 실패하면 Fallback 마지막에 Local이 시도됩니다 (AUTO 협의에는 포함되지 않음).
 
 로그인: **Continue with Google**
 - `VITE_FIREBASE_*` 설정 시 → Firebase Google 팝업 로그인
@@ -99,6 +101,9 @@ Vite 재시작 후 http://localhost:5173/login 에서 실로그인을 확인합�
 | `ANTHROPIC_API_KEY` | Claude |
 | `GOOGLE_API_KEY` | Gemini (+ 선택 CSE) |
 | `PERPLEXITY_API_KEY` | 웹 검색·인용 |
+| `LMSTUDIO_BASE_URL` | LM Studio OpenAI-compatible base (예: `http://127.0.0.1:1234/v1`) |
+| `LMSTUDIO_MODEL` | LM Studio에 로드된 모델 id (예: `qwen2.5-coder-3b-instruct`) |
+| `LMSTUDIO_API_KEY` | LM Studio API key (기본 `lm-studio`) |
 | `GOOGLE_CSE_ID` | (선택) Google Custom Search 근거 링크 |
 | `DATABASE_URL` | Neon 연결 문자열 |
 | `API_PORT` | API 포트 (기본 `8787`) |

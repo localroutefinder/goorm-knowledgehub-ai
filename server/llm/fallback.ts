@@ -16,6 +16,7 @@ export const FALLBACK_ORDER: ProviderModel[] = [
   'claude',
   'gemini',
   'perplexity',
+  'local',
 ]
 
 function mergeSources(base: string[], citations?: string[]): string[] {
@@ -61,7 +62,9 @@ export async function runWithFallback(
   })
   const primary = decision.model
   const baseReason = decision.reason
-  const chain = buildChain(primary)
+  // 수동 Local 선택 시 클라우드로 넘어가지 않음 (연결 실패를 명확히 표시)
+  const chain =
+    requested === 'local' ? (['local'] as ProviderModel[]) : buildChain(primary)
 
   for (let i = 0; i < chain.length; i++) {
     const model = chain[i]

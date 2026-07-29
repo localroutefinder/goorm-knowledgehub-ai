@@ -122,7 +122,8 @@ export function DocumentsPage() {
             {uploadMutation.isPending ? 'Indexing to Neon…' : 'Drop files to index'}
           </p>
           <p className="mt-1 text-sm text-on-surface-variant">
-            Workspace: {selectedWorkspaceId || 'ws-hr'} · OpenAI embedding
+            Workspace: {selectedWorkspaceId || 'ws-hr'} · OpenAI embedding · Chat에서 RAG
+            근거로 사용
           </p>
           {uploadError ? (
             <p className="mt-3 text-sm text-error">{uploadError}</p>

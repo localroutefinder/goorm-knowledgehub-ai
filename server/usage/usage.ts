@@ -3,7 +3,13 @@ import { getPool } from '../db.js'
 import { mockWorkspaces } from './workspaceBudgets.js'
 
 export type UsageKind = 'chat' | 'embed' | 'orchestrate'
-export type UsageModel = 'gpt' | 'claude' | 'gemini' | 'perplexity' | 'embedding'
+export type UsageModel =
+  | 'gpt'
+  | 'claude'
+  | 'gemini'
+  | 'perplexity'
+  | 'local'
+  | 'embedding'
 
 /** Approximate USD per 1K tokens (blended in/out). */
 const COST_PER_1K: Record<UsageModel, number> = {
@@ -11,6 +17,7 @@ const COST_PER_1K: Record<UsageModel, number> = {
   claude: 0.0012,
   gemini: 0.0002,
   perplexity: 0.001,
+  local: 0,
   embedding: 0.00002,
 }
 

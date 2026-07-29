@@ -76,7 +76,7 @@ export async function getAnalytics(workspaceId?: string) {
     return hourMap.get(h) ?? 0
   })
 
-  const modelHealth = ['gpt', 'claude', 'gemini', 'perplexity'].map((model) => {
+  const modelHealth = ['gpt', 'claude', 'gemini', 'perplexity', 'local'].map((model) => {
     const row = byModel.rows.find((r) => r.model === model)
     const fallbacks = Number(row?.fallbacks ?? 0)
     const requests = Number(row?.requests ?? 0)

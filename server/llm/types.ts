@@ -1,4 +1,4 @@
-export type ProviderModel = 'gpt' | 'claude' | 'gemini' | 'perplexity'
+export type ProviderModel = 'gpt' | 'claude' | 'gemini' | 'perplexity' | 'local'
 
 export type RequestedModel = ProviderModel | 'auto'
 
@@ -37,6 +37,8 @@ export interface GenerationOptions {
   systemInstructions?: string
   /** Prefer web grounding / search citations when available */
   includeWebSearch?: boolean
+  /** Force injecting top RAG hits even when score is weak */
+  preferDocuments?: boolean
 }
 
 export interface ProviderCallResult {
@@ -59,6 +61,7 @@ export interface LlmResult {
     maxTokens: number
     systemInstructions?: string
     includeWebSearch: boolean
+    preferDocuments: boolean
   }
 }
 
@@ -80,13 +83,19 @@ export function clampMaxTokens(value: unknown, fallback = 1024): number {
 
 export function normalizeGenerationOptions(
   raw: Partial<GenerationOptions> | undefined,
-): Required<Pick<GenerationOptions, 'temperature' | 'maxTokens' | 'includeWebSearch'>> &
+): Required<
+  Pick<
+    GenerationOptions,
+    'temperature' | 'maxTokens' | 'includeWebSearch' | 'preferDocuments'
+  >
+> &
   Pick<GenerationOptions, 'systemInstructions'> {
   return {
     temperature: clampTemperature(raw?.temperature, 0.3),
     maxTokens: clampMaxTokens(raw?.maxTokens, 1024),
     systemInstructions: raw?.systemInstructions?.trim() || undefined,
     includeWebSearch: Boolean(raw?.includeWebSearch),
+    preferDocuments: Boolean(raw?.preferDocuments),
   }
 }
 
@@ -164,5 +173,7 @@ export function hasProviderKey(model: ProviderModel): boolean {
       return Boolean(process.env.GOOGLE_API_KEY?.trim())
     case 'perplexity':
       return Boolean(process.env.PERPLEXITY_API_KEY?.trim())
+    case 'local':
+      return Boolean(process.env.LMSTUDIO_BASE_URL?.trim())
   }
 }
